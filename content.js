@@ -107,14 +107,25 @@ function getBaseBranchClass(tree, pr) {
   return `hsl(${hue}, 70%, 85%)`; // High lightness, moderate saturation for pastel effect
 }
 
-async function fetchPRDetails() {
-  const token = getGithubToken();
-
-  const pathParts = window.location.pathname.split('/');
-  const owner = pathParts[1];
-  const repo = pathParts[2];
+async function reorderPRs() {
 
   try {
+    const token = getGithubToken();
+
+    const pathParts = window.location.pathname.split('/');
+    const owner = pathParts[1];
+    const repo = pathParts[2];
+
+    // Get the container and all PR elements
+    const container = document.querySelector('.js-navigation-container');
+    if (!container) return;
+
+    // add class to container to prevent reordering on navigation
+    if (container.classList.contains('reordered')) return;
+
+    console.log('reordering PRs');
+    container.classList.add('reordered');
+
     const prs = await getPullRequests(owner, repo, token);
     const prDataMap = new Map(prs.map(pr => [pr.number.toString(), pr]));
 
@@ -138,10 +149,6 @@ async function fetchPRDetails() {
         rootPRs.add(prNumber);
       }
     });
-
-    // Get the container and all PR elements
-    const container = document.querySelector('.js-navigation-container');
-    if (!container) return;
 
     // Get all PR elements and convert to array for sorting
     const prElements = Array.from(container.children).filter(el => {
@@ -193,10 +200,18 @@ async function fetchPRDetails() {
     console.error('Error fetching PRs:', error);
     if (error.status === 401) {
       localStorage.removeItem('github_token');
-      fetchPRDetails();
+      reorderPRs();
     }
   }
 }
 
-// Run immediately and also when navigation occurs
-fetchPRDetails();
+// Run immediately
+reorderPRs();
+
+// Listen for Turbo navigation events
+document.addEventListener('turbo:render', () => {
+  // Only run if we're on a PR list page
+  if (window.location.pathname.endsWith('/pulls')) {
+    reorderPRs();
+  }
+});
