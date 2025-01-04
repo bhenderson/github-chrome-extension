@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub PR Base Branch Enhancer",
+  "version": "1.0",
+  "description": "Enhances GitHub PR list with base branch information",
+  "permissions": [
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://api.github.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ]
+} 
