@@ -99,7 +99,7 @@ function getBaseBranch(tree, pr) {
  * @param {PullRequest} pr
  * @returns {string}
  */
-function getBaseBranchClass(tree, pr) {
+function getBaseBranchColor(tree, pr) {
   const baseBranch = getBaseBranch(tree, pr);
 
   // Generate pastel color based on PR number
@@ -182,7 +182,7 @@ async function reorderPRs() {
           const depthLabel = document.createElement('span');
           depthLabel.classList.add('base-branch-label');
           depthLabel.textContent = `${depth}`;
-          depthLabel.style.backgroundColor = getBaseBranchClass(tree, pr);
+          depthLabel.style.backgroundColor = getBaseBranchColor(tree, pr);
           const openedBySpan = el.querySelector('.opened-by');
           if (openedBySpan) {
             openedBySpan.parentNode.insertBefore(depthLabel, openedBySpan);
