@@ -1,6 +1,12 @@
 // @ts-check
 
 /**
+ * TODO
+ * - [ ] Add a button in the UI to toggle this feature.
+ * - [ ] Add a button to filter PRs by approved-by:@me which is not currently supported in the UI.
+ */
+
+/**
  * @typedef {Object} PullRequest
  * @property {string} number
  * @property {string} created_at
