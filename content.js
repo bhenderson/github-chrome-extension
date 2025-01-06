@@ -125,8 +125,6 @@ function updateSortParameter() {
   const searchParams = url.searchParams;
   const qParam = searchParams.get('q') || '';
 
-  console.log('qParam', qParam);
-
   // Check if sort:created-asc is already in the q parameter
   if (!qParam.includes('sort:created-asc')) {
     // Add sort:created-asc to the q parameter
