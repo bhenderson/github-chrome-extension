@@ -55,10 +55,14 @@ function getGithubToken() {
 }
 
 /**
+ * @typedef {Record<string, TreeNode>} PRHeads
+ */
+
+/**
  * @typedef {Object} TreeNode
  * @property {PullRequest} [pr]
  * @property {TreeNode[]} children
- * @property {Record<string, TreeNode>} [byHead]
+ * @property {PRHeads} [byHead]
  */
 
 /**
@@ -66,7 +70,7 @@ function getGithubToken() {
  * @returns {TreeNode}
  */
 function buildTree(prs) {
-  /** @type {Record<string, TreeNode>} */
+  /** @type {PRHeads} */
   const byHead = {};
   /** @type {TreeNode} */
   const tree = { pr: undefined, children: [], byHead };
@@ -85,25 +89,25 @@ function buildTree(prs) {
 }
 
 /**
- * @param {TreeNode} tree
+ * @param {PRHeads} byHead
  * @param {PullRequest} pr
  * @returns {PullRequest}
  */
-function getBaseBranch(tree, pr) {
-  const basePR = tree.byHead?.[pr.base.ref]?.pr
+function getBaseBranch(byHead, pr) {
+  const basePR = byHead[pr.base.ref]?.pr
 
   if (!basePR) return pr
 
-  return getBaseBranch(tree, basePR);
+  return getBaseBranch(byHead, basePR);
 }
 
 /**
- * @param {TreeNode} tree
+ * @param {PRHeads} byHead
  * @param {PullRequest} pr
  * @returns {string}
  */
-function getBaseBranchColor(tree, pr) {
-  const baseBranch = getBaseBranch(tree, pr);
+function getBaseBranchColor(byHead, pr) {
+  const baseBranch = getBaseBranch(byHead, pr);
 
   // Generate pastel color based on PR number
   const hue = (Number(baseBranch.number) * 137.508) % 360; // Golden angle approximation
@@ -189,6 +193,7 @@ async function reorderPRs() {
     container.innerHTML = '';
 
     const tree = buildTree(prs);
+    const { byHead = {} } = tree;
 
     /**
      * @param {TreeNode} node
@@ -204,7 +209,7 @@ async function reorderPRs() {
           const depthLabel = document.createElement('span');
           depthLabel.classList.add('base-branch-label');
           depthLabel.textContent = `${depth}`;
-          depthLabel.style.backgroundColor = getBaseBranchColor(tree, pr);
+          depthLabel.style.backgroundColor = getBaseBranchColor(byHead, pr);
           const openedBySpan = el.querySelector('.opened-by');
           if (openedBySpan) {
             openedBySpan.parentNode.insertBefore(depthLabel, openedBySpan);
