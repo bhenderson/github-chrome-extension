@@ -17,18 +17,21 @@
  * @returns {Promise<PullRequest[]>}
  */
 async function getPullRequests(owner, repo, token) {
-  const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls?state=open&per_page=100`, {
+  const query = new URLSearchParams({
+    state: 'open',
+    per_page: '100',
+    sort: 'created',
+    direction: 'asc'
+  });
+
+  const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls?${query}`, {
     headers: {
       'Accept': 'application/json',
       'Authorization': `Bearer ${token}`
     }
   });
 
-  /** @type {PullRequest[]} */
-  const prs = await response.json();
-  prs.sort((a, b) => (a.created_at).localeCompare(b.created_at));
-
-  return prs;
+  return response.json();
 }
 
 /**
@@ -107,7 +110,26 @@ function getBaseBranchColor(tree, pr) {
   return `hsl(${hue}, 70%, 85%)`; // High lightness, moderate saturation for pastel effect
 }
 
+function updateSortParameter() {
+  const url = new URL(window.location.href);
+  const searchParams = url.searchParams;
+  const qParam = searchParams.get('q') || '';
+
+  console.log('qParam', qParam);
+
+  // Check if sort:created-asc is already in the q parameter
+  if (!qParam.includes('sort:created-asc')) {
+    // Add sort:created-asc to the q parameter
+    const newQParam = qParam ? `${qParam} sort:created-asc` : 'sort:created-asc';
+    searchParams.set('q', newQParam);
+
+    // Update the URL and reload the page
+    window.location.href = url.toString();
+  }
+}
+
 async function reorderPRs() {
+  updateSortParameter();
 
   try {
     const token = getGithubToken();
