@@ -124,27 +124,44 @@ function updateSortParameter() {
   const url = new URL(window.location.href);
   const searchParams = url.searchParams;
   const qParam = searchParams.get('q') || '';
+  let newQParam = qParam
 
   // Check if sort:created-asc is already in the q parameter
   if (!qParam.includes('sort:created-asc')) {
     // Add sort:created-asc to the q parameter
-    const newQParam = qParam ? `${qParam} sort:created-asc` : 'sort:created-asc';
-    searchParams.set('q', newQParam);
+    newQParam += ' sort:created-asc';
+  }
 
+  // the default for the UI is to exclude these params, but when you set the q param, it clears out the defaults.
+  if (!qParam.includes('is:open')) {
+    newQParam += ' is:open';
+  }
+
+  if (!qParam.includes('is:pr')) {
+    newQParam += ' is:pr';
+  }
+
+  newQParam = newQParam.trim();
+
+  if (qParam !== newQParam) {
+    searchParams.set('q', newQParam);
     // Update the URL and reload the page
     window.location.href = url.toString();
   }
 }
 
 async function reorderPRs() {
-  updateSortParameter();
-
   try {
-    const token = getGithubToken();
-
     const pathParts = window.location.pathname.split('/');
+
+    if (!pathParts.includes('pulls')) return;
+
     const owner = pathParts[1];
     const repo = pathParts[2];
+
+    updateSortParameter();
+    const token = getGithubToken();
+
 
     // Get the container and all PR elements
     const container = document.querySelector('.js-navigation-container');
