@@ -7,13 +7,24 @@
  */
 
 /**
+ * @typedef {Object} Review
+ * @property {string} author
+ * @property {Date} submittedAt
+ * @property {'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED'} state
+ * @property {string} html_url
+ */
+
+/**
  * @typedef {Object} PullRequest
- * @property {string} number
- * @property {string} created_at
- * @property {Object} base
- * @property {string} base.ref
- * @property {Object} head
- * @property {string} head.ref
+ * @property {number} number
+ * @property {string} title
+ * @property {string} url
+ * @property {Date} createdAt
+ * @property {string} baseRefName
+ * @property {string} headRefName
+ * @property {string} author
+ * @property {Review[]} reviews
+ * @property {'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null} reviewDecision
  */
 
 /**
@@ -23,72 +34,62 @@
  * @returns {Promise<PullRequest[]>}
  */
 async function getPullRequests(token, owner, repo) {
-  const query = new URLSearchParams({
-    state: 'open',
-    per_page: '100',
-    sort: 'created',
-    direction: 'asc'
-  });
+  const query = `query { 
+    repository(owner: "${owner}", name: "${repo}") { 
+      pullRequests(first: 100, states: [OPEN]) { 
+        nodes { 
+          number 
+          title 
+          url 
+          createdAt 
+          author { 
+            login 
+          }
+          baseRefName
+          headRefName 
+          reviews(first: 100, states: [APPROVED]) { 
+            nodes { 
+              author { 
+                login
+                url
+              } 
+              submittedAt 
+              state 
+            } 
+          } 
+          reviewDecision 
+        } 
+      } 
+    } 
+  }`;
 
-  const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls?${query}`, {
+  const response = await fetch('https://api.github.com/graphql', {
+    method: 'POST',
     headers: {
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${token}`
-    }
+      'Authorization': `bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query }),
   });
 
-  return response.json();
-}
-
-/**
- * @param {string} token
- * @param {string} owner
- * @param {string} repo
- * @param {Element[]} prElements
- */
-function getApprovalStatus(token, owner, repo, prElements) {
-  /** @type {Record<string, Promise<ApprovalStatus[]>>} Maps PR number to their approval statuses */
-  const initial = {};
-
-  return prElements.reduce((acc, el) => {
-    const prNumber = el.id.replace('issue_', '');
-    const statuses = getPRApprovalStatus(token, owner, repo, prNumber);
-
-    return { ...acc, [prNumber]: statuses };
-  }, initial);
-}
-
-/**
- * @typedef {'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING' | 'DISMISSED' | 'COMMENTED'} PR_STATE
- */
-
-/**
- * @typedef {Object} ApprovalStatus
- * @property {Object} user
- * @property {string} user.login
- * @property {string} user.html_url
- * @property {PR_STATE} state
- */
-
-/**
- * @param {string} token
- * @param {string} owner
- * @param {string} repo
- * @param {string} prNumber
- */
-async function getPRApprovalStatus(token, owner, repo, prNumber) {
-  const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/reviews`, {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  });
-  /** @type {ApprovalStatus[]} */
   const data = await response.json();
 
-  // return the list of reviews condensed by user.login preferring the most recent review
-  return data.reverse().filter((review, idx) => {
-    return data.findIndex((r) => r.user.login === review.user.login) === idx;
-  }).reverse();
+  return data.data.repository.pullRequests.nodes.map(pr => /** @type {PullRequest} */({
+    number: pr.number,
+    title: pr.title,
+    url: pr.url,
+    createdAt: new Date(pr.createdAt),
+    author: pr.author.login,
+    baseRefName: pr.baseRefName,
+    headRefName: pr.headRefName,
+    reviews: pr.reviews.nodes.map(review => /** @type {Review} */({
+      author: review.author.login,
+      submittedAt: new Date(review.submittedAt),
+      state: review.state,
+      html_url: review.author.url,
+    })),
+    reviewDecision: pr.reviewDecision,
+  }));
 }
 
 function getGithubToken() {
@@ -129,13 +130,13 @@ function buildTree(prs) {
   const tree = { pr: undefined, children: [], byHead };
 
   for (const pr of prs) {
-    byHead[pr.head.ref] = { pr, children: [] };
+    byHead[pr.headRefName] = { pr, children: [] };
   }
 
   for (const pr of prs) {
-    const leaf = byHead[pr.base.ref] || tree;
+    const leaf = byHead[pr.baseRefName] || tree;
 
-    leaf.children.push(byHead[pr.head.ref]);
+    leaf.children.push(byHead[pr.headRefName]);
   }
 
   return tree;
@@ -146,7 +147,7 @@ function buildTree(prs) {
  * @param {PullRequest} pr
  */
 function getBaseBranch(byHead, pr) {
-  const basePR = byHead[pr.base.ref]?.pr
+  const basePR = byHead[pr.baseRefName]?.pr
 
   if (!basePR) return pr
 
@@ -195,6 +196,30 @@ function updateSortParameter() {
   }
 }
 
+/**
+ * @param {PullRequest} pr
+ */
+function getApprovalSpan(pr) {
+  if (pr.reviewDecision !== 'APPROVED') return;
+
+  const span = document.createElement('span');
+  span.classList.add('ml-1');
+  span.append(' by ');
+
+  const children = pr.reviews.flatMap(review => {
+    const statusEl = document.createElement('a');
+    statusEl.href = review.html_url;
+    statusEl.textContent = review.author;
+    return [statusEl, ', '];
+  });
+
+  // remove last comma
+  children.pop();
+  span.append(...children);
+
+  return span;
+}
+
 async function reorderPRs() {
   try {
     const pathParts = window.location.pathname.split('/');
@@ -224,10 +249,7 @@ async function reorderPRs() {
       return id && id.startsWith('issue_');
     });
 
-    const approvalStatusPromise = getApprovalStatus(token, owner, repo, prElements);
-
     const prs = await getPullRequests(token, owner, repo);
-    const prDataMap = new Map(prs.map(pr => [pr.number.toString(), pr]));
 
     // Build dependency tree
     const dependencyMap = new Map();
@@ -235,9 +257,9 @@ async function reorderPRs() {
 
     prs.forEach(pr => {
       const prNumber = pr.number.toString();
-      const baseBranch = pr.base.ref;
+      const baseBranch = pr.baseRefName;
 
-      const parentPR = prs.find(otherPR => otherPR.head.ref === baseBranch);
+      const parentPR = prs.find(otherPR => otherPR.headRefName === baseBranch);
 
       if (parentPR) {
         const parentNumber = parentPR.number.toString();
@@ -281,9 +303,14 @@ async function reorderPRs() {
           depthLabel.textContent = `${depth}`;
           depthLabel.style.backgroundColor = getBaseBranchColor(byHead, pr);
           const openedBySpan = el.querySelector('.opened-by');
+          const statusSpan = openedBySpan?.parentNode;
 
-          openedBySpan?.parentNode?.prepend(' ');
-          openedBySpan?.parentNode?.prepend(depthLabel);
+          statusSpan?.prepend(depthLabel, ' ');
+
+          const approvalSpan = getApprovalSpan(pr);
+          if (approvalSpan) {
+            statusSpan?.append(approvalSpan);
+          }
         }
       }
       for (const child of children) {
@@ -292,35 +319,6 @@ async function reorderPRs() {
     }
 
     traverseTree(tree);
-
-    // add statuses to all PRs
-    for (const el of prElements) {
-      const prNumber = el.id.replace('issue_', '');
-      if (!prNumber) continue;
-
-      const statuses = await approvalStatusPromise[prNumber];
-      const approvedStatuses = statuses.filter(status => status.state === 'APPROVED');
-
-      if (approvedStatuses.length === 0) continue;
-
-      const prStatusNode = el.querySelector('.opened-by')?.parentNode;
-      const approvedBySpan = document.createElement('span');
-      approvedBySpan.classList.add('ml-1');
-      approvedBySpan.append(' by ');
-
-      for (const idx in approvedStatuses) {
-        const status = approvedStatuses[idx];
-        const statusEl = document.createElement('a');
-        statusEl.href = status.user.html_url;
-        statusEl.textContent = status.user.login;
-        approvedBySpan.append(statusEl);
-        if (Number(idx) < approvedStatuses.length - 1) {
-          approvedBySpan.append(', ');
-        }
-      }
-
-      prStatusNode?.appendChild(approvedBySpan);
-    }
 
   } catch (error) {
     console.error('Error fetching PRs:', error);
