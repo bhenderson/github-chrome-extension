@@ -30,6 +30,8 @@
 /**
  * @typedef {Object} GraphQLResponse
  * @property {Object} data
+ * @property {Object} data.viewer
+ * @property {string} data.viewer.login
  * @property {Object} data.repository
  * @property {Object} data.repository.pullRequests
  * @property {Array<{
@@ -60,10 +62,13 @@
  * @param {string} token
  * @param {string} owner
  * @param {string} repo
- * @returns {Promise<PullRequest[]>}
+ * @returns {Promise<{currentUser: string, pullRequests: PullRequest[]}>}
  */
 async function getPullRequests(token, owner, repo) {
   const query = `query { 
+    viewer {
+      login
+    }
     repository(owner: "${owner}", name: "${repo}") { 
       pullRequests(first: 100, states: [OPEN]) { 
         nodes { 
@@ -104,22 +109,25 @@ async function getPullRequests(token, owner, repo) {
   /** @type {GraphQLResponse} */
   const data = await response.json();
 
-  return data.data.repository.pullRequests.nodes.map(pr => /** @type {PullRequest} */({
-    number: pr.number,
-    title: pr.title,
-    url: pr.url,
-    createdAt: new Date(pr.createdAt),
-    author: pr.author.login,
-    baseRefName: pr.baseRefName,
-    headRefName: pr.headRefName,
-    reviews: pr.reviews.nodes.map(review => /** @type {Review} */({
-      author: review.author.login,
-      submittedAt: new Date(review.submittedAt),
-      state: review.state,
-      html_url: review.author.url,
-    })),
-    reviewDecision: pr.reviewDecision,
-  }));
+  return {
+    currentUser: data.data.viewer.login,
+    pullRequests: data.data.repository.pullRequests.nodes.map(pr => /** @type {PullRequest} */({
+      number: pr.number,
+      title: pr.title,
+      url: pr.url,
+      createdAt: new Date(pr.createdAt),
+      author: pr.author.login,
+      baseRefName: pr.baseRefName,
+      headRefName: pr.headRefName,
+      reviews: pr.reviews.nodes.map(review => /** @type {Review} */({
+        author: review.author.login,
+        submittedAt: new Date(review.submittedAt),
+        state: review.state,
+        html_url: review.author.url,
+      })),
+      reviewDecision: pr.reviewDecision,
+    }))
+  };
 }
 
 function getGithubToken() {
@@ -220,24 +228,32 @@ function updateSortParameter() {
 
 /**
  * @param {PullRequest} pr
+ * @param {string} currentUser
  */
-function getApprovalSpan(pr) {
-  if (pr.reviewDecision !== 'APPROVED') return;
+function getApprovalSpan(pr, currentUser) {
+  if (pr.reviews.length === 0) return;
 
+  const approved = pr.reviewDecision === 'APPROVED';
+  const dot = ' • ';
   const span = document.createElement('span');
   span.classList.add('ml-1');
-  span.append(' by ');
+
+  span.append(approved ? ' by ' : dot + '(Approved by ');
 
   const children = pr.reviews.flatMap(review => {
     const statusEl = document.createElement('a');
     statusEl.href = review.html_url;
-    statusEl.textContent = review.author;
+    statusEl.textContent = review.author === currentUser ? 'you' : review.author;
     return [statusEl, ', '];
   });
 
   // remove last comma
   children.pop();
   span.append(...children);
+
+  if (!approved) {
+    span.append(')')
+  }
 
   return span;
 }
@@ -271,17 +287,17 @@ async function reorderPRs() {
       return id && id.startsWith('issue_');
     });
 
-    const prs = await getPullRequests(token, owner, repo);
+    const { currentUser, pullRequests } = await getPullRequests(token, owner, repo);
 
     // Build dependency tree
     const dependencyMap = new Map();
     const rootPRs = new Set();
 
-    prs.forEach(pr => {
+    pullRequests.forEach(pr => {
       const prNumber = pr.number.toString();
       const baseBranch = pr.baseRefName;
 
-      const parentPR = prs.find(otherPR => otherPR.headRefName === baseBranch);
+      const parentPR = pullRequests.find(otherPR => otherPR.headRefName === baseBranch);
 
       if (parentPR) {
         const parentNumber = parentPR.number.toString();
@@ -305,7 +321,7 @@ async function reorderPRs() {
     // clear container
     container.innerHTML = '';
 
-    const tree = buildTree(prs);
+    const tree = buildTree(pullRequests);
     const { byHead = {} } = tree;
 
     /**
@@ -329,7 +345,7 @@ async function reorderPRs() {
 
           statusSpan?.prepend(depthLabel, ' ');
 
-          const approvalSpan = getApprovalSpan(pr);
+          const approvalSpan = getApprovalSpan(pr, currentUser);
           if (approvalSpan) {
             statusSpan?.append(approvalSpan);
           }
