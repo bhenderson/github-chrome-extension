@@ -28,6 +28,35 @@
  */
 
 /**
+ * @typedef {Object} GraphQLResponse
+ * @property {Object} data
+ * @property {Object} data.repository
+ * @property {Object} data.repository.pullRequests
+ * @property {Array<{
+ *   number: number,
+ *   title: string,
+ *   url: string,
+ *   createdAt: string,
+ *   author: {
+ *     login: string
+ *   },
+ *   baseRefName: string,
+ *   headRefName: string,
+ *   reviews: {
+ *     nodes: Array<{
+ *       author: {
+ *         login: string,
+ *         url: string
+ *       },
+ *       submittedAt: string,
+ *       state: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED'
+ *     }>
+ *   },
+ *   reviewDecision: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null
+ * }>} data.repository.pullRequests.nodes
+ */
+
+/**
  * @param {string} token
  * @param {string} owner
  * @param {string} repo
@@ -72,6 +101,7 @@ async function getPullRequests(token, owner, repo) {
     body: JSON.stringify({ query }),
   });
 
+  /** @type {GraphQLResponse} */
   const data = await response.json();
 
   return data.data.repository.pullRequests.nodes.map(pr => /** @type {PullRequest} */({
@@ -169,22 +199,14 @@ function getBaseBranchColor(byHead, pr) {
 function updateSortParameter() {
   const url = new URL(window.location.href);
   const searchParams = url.searchParams;
-  const qParam = searchParams.get('q') || '';
+  // when the UI loads, this is the default, but it isn't in the URL. without it, if we set the q param, it clears out the defaults.
+  const defaultQuery = 'is:open is:pr';
+  const qParam = searchParams.get('q') || defaultQuery;
   let newQParam = qParam
 
-  // Check if sort:created-asc is already in the q parameter
+  // Make sure that PRs are sorted by creation time so help aid in viewing the tree.
   if (!qParam.includes('sort:created-asc')) {
-    // Add sort:created-asc to the q parameter
     newQParam += ' sort:created-asc';
-  }
-
-  // the default for the UI is to exclude these params, but when you set the q param, it clears out the defaults.
-  if (!qParam.includes('is:open')) {
-    newQParam += ' is:open';
-  }
-
-  if (!qParam.includes('is:pr')) {
-    newQParam += ' is:pr';
   }
 
   newQParam = newQParam.trim();
