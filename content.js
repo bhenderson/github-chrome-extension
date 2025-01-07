@@ -17,12 +17,12 @@
  */
 
 /**
+ * @param {string} token
  * @param {string} owner
  * @param {string} repo
- * @param {string} token
  * @returns {Promise<PullRequest[]>}
  */
-async function getPullRequests(owner, repo, token) {
+async function getPullRequests(token, owner, repo) {
   const query = new URLSearchParams({
     state: 'open',
     per_page: '100',
@@ -41,8 +41,56 @@ async function getPullRequests(owner, repo, token) {
 }
 
 /**
- * @returns {string}
+ * @param {string} token
+ * @param {string} owner
+ * @param {string} repo
+ * @param {Element[]} prElements
  */
+function getApprovalStatus(token, owner, repo, prElements) {
+  /** @type {Record<string, Promise<ApprovalStatus[]>>} Maps PR number to their approval statuses */
+  const initial = {};
+
+  return prElements.reduce((acc, el) => {
+    const prNumber = el.id.replace('issue_', '');
+    const statuses = getPRApprovalStatus(token, owner, repo, prNumber);
+
+    return { ...acc, [prNumber]: statuses };
+  }, initial);
+}
+
+/**
+ * @typedef {'APPROVED' | 'CHANGES_REQUESTED' | 'PENDING' | 'DISMISSED' | 'COMMENTED'} PR_STATE
+ */
+
+/**
+ * @typedef {Object} ApprovalStatus
+ * @property {Object} user
+ * @property {string} user.login
+ * @property {string} user.html_url
+ * @property {PR_STATE} state
+ */
+
+/**
+ * @param {string} token
+ * @param {string} owner
+ * @param {string} repo
+ * @param {string} prNumber
+ */
+async function getPRApprovalStatus(token, owner, repo, prNumber) {
+  const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/reviews`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  /** @type {ApprovalStatus[]} */
+  const data = await response.json();
+
+  // return the list of reviews condensed by user.login preferring the most recent review
+  return data.reverse().filter((review, idx) => {
+    return data.findIndex((r) => r.user.login === review.user.login) === idx;
+  }).reverse();
+}
+
 function getGithubToken() {
   let token = localStorage.getItem('github_token');
 
@@ -73,7 +121,6 @@ function getGithubToken() {
 
 /**
  * @param {PullRequest[]} prs
- * @returns {TreeNode}
  */
 function buildTree(prs) {
   /** @type {PRHeads} */
@@ -97,7 +144,6 @@ function buildTree(prs) {
 /**
  * @param {PRHeads} byHead
  * @param {PullRequest} pr
- * @returns {PullRequest}
  */
 function getBaseBranch(byHead, pr) {
   const basePR = byHead[pr.base.ref]?.pr
@@ -110,7 +156,6 @@ function getBaseBranch(byHead, pr) {
 /**
  * @param {PRHeads} byHead
  * @param {PullRequest} pr
- * @returns {string}
  */
 function getBaseBranchColor(byHead, pr) {
   const baseBranch = getBaseBranch(byHead, pr);
@@ -173,7 +218,15 @@ async function reorderPRs() {
     console.log('reordering PRs');
     container.classList.add('reordered');
 
-    const prs = await getPullRequests(owner, repo, token);
+    // Get all PR elements and convert to array for sorting
+    const prElements = Array.from(container.children).filter(el => {
+      const id = el.id;
+      return id && id.startsWith('issue_');
+    });
+
+    const approvalStatusPromise = getApprovalStatus(token, owner, repo, prElements);
+
+    const prs = await getPullRequests(token, owner, repo);
     const prDataMap = new Map(prs.map(pr => [pr.number.toString(), pr]));
 
     // Build dependency tree
@@ -197,12 +250,7 @@ async function reorderPRs() {
       }
     });
 
-    // Get all PR elements and convert to array for sorting
-    const prElements = Array.from(container.children).filter(el => {
-      const id = el.id;
-      return id && id.startsWith('issue_');
-    });
-
+    /** @type {Record<string, Element>} Maps PR number to their DOM element */
     const elementByPRNumber = {};
 
     for (const el of prElements) {
@@ -224,7 +272,8 @@ async function reorderPRs() {
       const { pr, children } = node;
       if (pr && elementByPRNumber[pr.number]) {
         const el = elementByPRNumber[pr.number];
-        container.appendChild(el);
+
+        container?.appendChild(el);
 
         if (children.length > 0 || depth > 1) {
           const depthLabel = document.createElement('span');
@@ -232,9 +281,9 @@ async function reorderPRs() {
           depthLabel.textContent = `${depth}`;
           depthLabel.style.backgroundColor = getBaseBranchColor(byHead, pr);
           const openedBySpan = el.querySelector('.opened-by');
-          if (openedBySpan) {
-            openedBySpan.parentNode.insertBefore(depthLabel, openedBySpan);
-          }
+
+          openedBySpan?.parentNode?.prepend(' ');
+          openedBySpan?.parentNode?.prepend(depthLabel);
         }
       }
       for (const child of children) {
@@ -243,6 +292,35 @@ async function reorderPRs() {
     }
 
     traverseTree(tree);
+
+    // add statuses to all PRs
+    for (const el of prElements) {
+      const prNumber = el.id.replace('issue_', '');
+      if (!prNumber) continue;
+
+      const statuses = await approvalStatusPromise[prNumber];
+      const approvedStatuses = statuses.filter(status => status.state === 'APPROVED');
+
+      if (approvedStatuses.length === 0) continue;
+
+      const prStatusNode = el.querySelector('.opened-by')?.parentNode;
+      const approvedBySpan = document.createElement('span');
+      approvedBySpan.classList.add('ml-1');
+      approvedBySpan.append(' by ');
+
+      for (const idx in approvedStatuses) {
+        const status = approvedStatuses[idx];
+        const statusEl = document.createElement('a');
+        statusEl.href = status.user.html_url;
+        statusEl.textContent = status.user.login;
+        approvedBySpan.append(statusEl);
+        if (Number(idx) < approvedStatuses.length - 1) {
+          approvedBySpan.append(', ');
+        }
+      }
+
+      prStatusNode?.appendChild(approvedBySpan);
+    }
 
   } catch (error) {
     console.error('Error fetching PRs:', error);
