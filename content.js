@@ -9,7 +9,6 @@
 /**
  * @typedef {Object} Review
  * @property {string} author
- * @property {Date} submittedAt
  * @property {'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED'} state
  * @property {string} html_url
  */
@@ -19,7 +18,6 @@
  * @property {number} number
  * @property {string} title
  * @property {string} url
- * @property {Date} createdAt
  * @property {string} baseRefName
  * @property {string} headRefName
  * @property {string} author
@@ -38,19 +36,17 @@
  *   number: number,
  *   title: string,
  *   url: string,
- *   createdAt: string,
  *   author: {
  *     login: string
  *   },
  *   baseRefName: string,
  *   headRefName: string,
- *   reviews: {
+ *   latestReviews: {
  *     nodes: Array<{
  *       author: {
  *         login: string,
  *         url: string
  *       },
- *       submittedAt: string,
  *       state: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED'
  *     }>
  *   },
@@ -75,19 +71,17 @@ async function getPullRequests(token, owner, repo) {
           number 
           title 
           url 
-          createdAt 
           author { 
             login 
           }
           baseRefName
           headRefName 
-          reviews(first: 100, states: [APPROVED]) { 
+          latestReviews(first: 100) { 
             nodes { 
               author { 
                 login
                 url
               } 
-              submittedAt 
               state 
             } 
           } 
@@ -115,13 +109,11 @@ async function getPullRequests(token, owner, repo) {
       number: pr.number,
       title: pr.title,
       url: pr.url,
-      createdAt: new Date(pr.createdAt),
       author: pr.author.login,
       baseRefName: pr.baseRefName,
       headRefName: pr.headRefName,
-      reviews: pr.reviews.nodes.map(review => /** @type {Review} */({
+      reviews: pr.latestReviews.nodes.map(review => /** @type {Review} */({
         author: review.author.login,
-        submittedAt: new Date(review.submittedAt),
         state: review.state,
         html_url: review.author.url,
       })),
@@ -231,7 +223,8 @@ function updateSortParameter() {
  * @param {string} currentUser
  */
 function getApprovalSpan(pr, currentUser) {
-  if (pr.reviews.length === 0) return;
+  const approvedReviews = pr.reviews.filter(review => review.state === 'APPROVED');
+  if (approvedReviews.length === 0) return;
 
   const approved = pr.reviewDecision === 'APPROVED';
   const dot = ' • ';
@@ -240,7 +233,7 @@ function getApprovalSpan(pr, currentUser) {
 
   span.append(approved ? ' by ' : dot + '(Approved by ');
 
-  const children = pr.reviews.flatMap(review => {
+  const children = approvedReviews.flatMap(review => {
     const statusEl = document.createElement('a');
     statusEl.href = review.html_url;
     statusEl.textContent = review.author === currentUser ? 'you' : review.author;
