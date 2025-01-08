@@ -214,24 +214,23 @@ function getBaseBranchColor(byHead, pr) {
 }
 
 function updateSortParameter() {
-  const url = new URL(window.location.href);
-  const searchParams = url.searchParams;
-  // when the UI loads, this is the default, but it isn't in the URL. without it, if we set the q param, it clears out the defaults.
-  const defaultQuery = 'is:open is:pr';
-  const qParam = searchParams.get('q') || defaultQuery;
-  let newQParam = qParam
+  // Find the search form and input
+  const searchForm = /** @type {HTMLFormElement} */ (document.querySelector('form.subnav-search'));
+  const searchInput = /** @type {HTMLInputElement} */ (searchForm?.querySelector('input[name="q"]'));
+  if (!searchForm || !searchInput) return;
 
-  // Make sure that PRs are sorted by creation time so help aid in viewing the tree.
-  if (!qParam.includes('sort:created-asc')) {
-    newQParam += ' sort:created-asc';
+  // when the UI loads, this is the default, but it isn't in the URL
+  const currentQuery = searchInput.value
+  let newQuery = currentQuery;
+
+  // Make sure that PRs are sorted by creation time
+  if (!currentQuery.includes('sort:created-asc')) {
+    newQuery += ' sort:created-asc';
   }
 
-  newQParam = newQParam.trim();
-
-  if (qParam !== newQParam) {
-    searchParams.set('q', newQParam);
-    // Update the URL and reload the page
-    window.location.href = url.toString();
+  if (currentQuery.trim() !== newQuery.trim()) {
+    searchInput.value = newQuery;
+    searchForm.requestSubmit();
   }
 }
 
