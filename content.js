@@ -346,27 +346,6 @@ async function reorderPRs() {
 
     const { currentUser, pullRequests } = await getPullRequests(token, owner, repo);
 
-    // Build dependency tree
-    const dependencyMap = new Map();
-    const rootPRs = new Set();
-
-    pullRequests.forEach(pr => {
-      const prNumber = pr.number.toString();
-      const baseBranch = pr.baseRefName;
-
-      const parentPR = pullRequests.find(otherPR => otherPR.headRefName === baseBranch);
-
-      if (parentPR) {
-        const parentNumber = parentPR.number.toString();
-        if (!dependencyMap.has(parentNumber)) {
-          dependencyMap.set(parentNumber, new Set());
-        }
-        dependencyMap.get(parentNumber).add(prNumber);
-      } else {
-        rootPRs.add(prNumber);
-      }
-    });
-
     /** @type {Record<string, Element>} Maps PR number to their DOM element */
     const elementByPRNumber = {};
 
