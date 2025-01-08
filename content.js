@@ -1,17 +1,34 @@
 // @ts-check
 
-/**
- * TODO
- * - [ ] Add a button in the UI to toggle this feature.
- * - [ ] Add a button to filter PRs by approved-by:@me which is not currently supported in the UI.
- */
+// TODO
+// - [ ] Add a button in the UI to toggle this feature.
+// - [ ] Add a button to filter PRs by approved-by:@me which is not currently supported in the UI.
+
+const PullRequestReviewState = /** @type {const} */ ({
+  APPROVED: 'APPROVED',
+  CHANGES_REQUESTED: 'CHANGES_REQUESTED',
+  COMMENTED: 'COMMENTED',
+  DISMISSED: 'DISMISSED',
+  PENDING: 'PENDING'
+});
+
+/** @typedef {typeof PullRequestReviewState[keyof typeof PullRequestReviewState]} PullRequestReviewState */
 
 /**
  * @typedef {Object} Review
  * @property {string} author
- * @property {'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED'} state
+ * @property {PullRequestReviewState} state
  * @property {string} html_url
  */
+
+const PullRequestReviewDecision = /** @type {const} */ ({
+  APPROVED: 'APPROVED',
+  CHANGES_REQUESTED: 'CHANGES_REQUESTED',
+  REVIEW_REQUIRED: 'REVIEW_REQUIRED',
+  NONE: null
+});
+
+/** @typedef {typeof PullRequestReviewDecision[keyof typeof PullRequestReviewDecision]} PullRequestReviewDecision */
 
 /**
  * @typedef {Object} PullRequest
@@ -22,7 +39,7 @@
  * @property {string} headRefName
  * @property {string} author
  * @property {Review[]} reviews
- * @property {'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null} reviewDecision
+ * @property {PullRequestReviewDecision} reviewDecision
  */
 
 /**
@@ -47,10 +64,10 @@
  *         login: string,
  *         url: string
  *       },
- *       state: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED'
+ *       state: PullRequestReviewState
  *     }>
  *   },
- *   reviewDecision: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null
+ *   reviewDecision: PullRequestReviewDecision
  * }>} data.repository.pullRequests.nodes
  */
 
@@ -219,21 +236,31 @@ function updateSortParameter() {
 }
 
 /**
- * @param {PullRequest} pr
- * @param {string} currentUser
+ * @template T
+ * @param {Array<T>} array
+ * @param {(value: T) => boolean} predicate
+ * @returns {[Array<T>, Array<T>]}
  */
-function getApprovalSpan(pr, currentUser) {
-  const approvedReviews = pr.reviews.filter(review => review.state === 'APPROVED');
-  if (approvedReviews.length === 0) return;
+function partition(array, predicate) {
+  const initial = /** @type {[Array<T>, Array<T>]} */ ([[], []]);
 
-  const approved = pr.reviewDecision === 'APPROVED';
-  const dot = ' • ';
+  return array.reduce(([a, b], value) => ((predicate(value) ? a : b).push(value), [a, b]), initial);
+}
+
+/**
+ * @param {Review[]} reviews
+ * @param {string} currentUser
+ * @returns {HTMLElement | null}
+ */
+function createReviewElements(reviews, currentUser) {
+  if (!reviews.length) return null;
+
   const span = document.createElement('span');
   span.classList.add('ml-1');
 
-  span.append(approved ? ' by ' : dot + '(Approved by ');
+  span.append(' by ');
 
-  const children = approvedReviews.flatMap(review => {
+  const children = reviews.flatMap(review => {
     const statusEl = document.createElement('a');
     statusEl.href = review.html_url;
     statusEl.textContent = review.author === currentUser ? 'you' : review.author;
@@ -244,11 +271,49 @@ function getApprovalSpan(pr, currentUser) {
   children.pop();
   span.append(...children);
 
-  if (!approved) {
-    span.append(')')
-  }
-
   return span;
+}
+
+/**
+ * @param {PullRequest} pr
+ * @param {string} currentUser
+ * @param {HTMLElement} node
+ */
+function showReviewers(pr, currentUser, node) {
+  const reviews = pr.reviews.filter(review => review.state === PullRequestReviewState.APPROVED || review.state === PullRequestReviewState.CHANGES_REQUESTED);
+  if (reviews.length === 0) return;
+
+  const [approvedReviews, changesRequestedReviews] = partition(reviews, review => review.state === PullRequestReviewState.APPROVED);
+  const lastChild = node.children[node.children.length - 1]
+
+  if (!lastChild) return;
+
+  switch (pr.reviewDecision) {
+    case PullRequestReviewDecision.CHANGES_REQUESTED: {
+      const reviewElements = createReviewElements(changesRequestedReviews, currentUser);
+      if (reviewElements) {
+        node.append(reviewElements)
+      }
+      if (!approvedReviews.length) break;
+
+      const span = document.createElement('span');
+      span.classList.add('ml-1');
+      span.innerText = ' • Approved ';
+      node.append(span);
+      // fall through
+    }
+    case PullRequestReviewDecision.APPROVED: {
+      const reviewElements = createReviewElements(approvedReviews, currentUser);
+      if (reviewElements) {
+        node.append(reviewElements)
+      }
+      break;
+    }
+    case PullRequestReviewDecision.REVIEW_REQUIRED:
+      break;
+    case PullRequestReviewDecision.NONE:
+      break;
+  }
 }
 
 async function reorderPRs() {
@@ -329,19 +394,19 @@ async function reorderPRs() {
         container?.appendChild(el);
 
         if (children.length > 0 || depth > 1) {
+          const depthLabelContainer = document.createElement('div');
           const depthLabel = document.createElement('span');
           depthLabel.classList.add('base-branch-label');
           depthLabel.textContent = `${depth}`;
           depthLabel.style.backgroundColor = getBaseBranchColor(byHead, pr);
+          depthLabelContainer.appendChild(depthLabel);
           const openedBySpan = el.querySelector('.opened-by');
-          const statusSpan = openedBySpan?.parentNode;
+          const statusSpan = openedBySpan?.parentElement;
 
-          statusSpan?.prepend(depthLabel, ' ');
+          if (!statusSpan) return;
 
-          const approvalSpan = getApprovalSpan(pr, currentUser);
-          if (approvalSpan) {
-            statusSpan?.append(approvalSpan);
-          }
+          statusSpan.prepend(depthLabel, ' ');
+          showReviewers(pr, currentUser, statusSpan);
         }
       }
       for (const child of children) {
