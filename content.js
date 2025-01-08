@@ -368,24 +368,28 @@ async function reorderPRs() {
       const { pr, children } = node;
       if (pr && elementByPRNumber[pr.number]) {
         const el = elementByPRNumber[pr.number];
+        // is this PR part of a chain of dependencies?
+        const isInChain = children.length > 0 || depth > 1;
 
+        // re add to container in order of dependency
         container?.appendChild(el);
 
-        if (children.length > 0 || depth > 1) {
+        const openedBySpan = el.querySelector('.opened-by');
+        const statusSpan = openedBySpan?.parentElement;
+
+        if (!statusSpan) return;
+
+        if (isInChain) {
           const depthLabelContainer = document.createElement('div');
           const depthLabel = document.createElement('span');
           depthLabel.classList.add('base-branch-label');
           depthLabel.textContent = `${depth}`;
           depthLabel.style.backgroundColor = getBaseBranchColor(byHead, pr);
           depthLabelContainer.appendChild(depthLabel);
-          const openedBySpan = el.querySelector('.opened-by');
-          const statusSpan = openedBySpan?.parentElement;
-
-          if (!statusSpan) return;
 
           statusSpan.prepend(depthLabel, ' ');
-          showReviewers(pr, currentUser, statusSpan);
         }
+        showReviewers(pr, currentUser, statusSpan);
       }
       for (const child of children) {
         traverseTree(child, depth + 1);
