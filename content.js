@@ -4,6 +4,7 @@
 // - [ ] Add a button in the UI to toggle this feature.
 // - [ ] Add a button to filter PRs by approved-by:@me which is not currently supported in the UI.
 
+
 const PullRequestReviewState = /** @type {const} */ ({
   APPROVED: 'APPROVED',
   CHANGES_REQUESTED: 'CHANGES_REQUESTED',
@@ -409,13 +410,68 @@ async function reorderPRs() {
   }
 }
 
+const ApprovedByMeFilterText = {
+  active: 'Clear approved by me filter',
+  inactive: 'Filter PRs approved by me',
+}
+
+const approvedByMeFilterValue = 'approved-by:@me';
+
+function addApprovedByMeButton() {
+  const wrapper = document.querySelector('.issues-reset-query-wrapper');
+  if (wrapper && !wrapper.querySelector('.approved-by-me-filter')) {
+    const filterButton = document.createElement('button');
+    filterButton.className = 'btn btn-sm ml-2 approved-by-me-filter';
+    filterButton.onclick = () => toggleApprovedByMeFilter(filterButton);
+
+    wrapper.appendChild(filterButton);
+
+    toggleApprovedByMeFilter(filterButton, true);
+  }
+}
+
+/**
+ * @param {HTMLButtonElement} filterButton
+ * @param {boolean} initial
+ */
+function toggleApprovedByMeFilter(filterButton, initial = false) {
+  const { hashParams } = globalThis;
+  let value = hashParams.has(approvedByMeFilterValue);
+
+  if (!initial) {
+    value = !value;
+  }
+
+  filterButton.textContent = value ? ApprovedByMeFilterText.active : ApprovedByMeFilterText.inactive;
+  hashParams.set(approvedByMeFilterValue, value);
+}
+
+/**
+ * @param {HashChangeEvent} event 
+ */
+function hashChange(event) {
+  console.log('hashChange', event);
+}
+
+function onLoad() {
+  globalThis.setupSearchInterceptor();
+  // reorderPRs();
+  // addApprovedByMeButton();
+}
+
+function onPRListPage() {
+  const pathParts = window.location.pathname.split('/');
+
+  return pathParts[3] === 'pulls';
+}
+
 // Run immediately
-reorderPRs();
+onLoad();
 
 // Listen for Turbo navigation events
 document.addEventListener('turbo:render', () => {
   // Only run if we're on a PR list page
-  if (window.location.pathname.endsWith('/pulls')) {
-    reorderPRs();
+  if (onPRListPage()) {
+    onLoad();
   }
 });
