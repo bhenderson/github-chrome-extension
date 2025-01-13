@@ -12,7 +12,7 @@
   "content_scripts": [
     {
       "matches": ["https://github.com/*"],
-      "js": ["query-handler.js", "content.js"],
+      "js": ["query-handler.js", "filters.js", "content.js"],
       "css": ["styles.css"],
       "type": "module"
     }

@@ -2,7 +2,8 @@
 
 const customCommands = /** @type {const} */ ([
     'approved-by',
-    'changes-requested'
+    'changes-requested',
+    'dependency', // dependency:tree
 ])
 
 /** @typedef { keyof typeof customCommands } CustomCommand */
@@ -11,7 +12,7 @@ const customCommands = /** @type {const} */ ([
  * @typedef {Object} QueryTerm
  * @property {string} key
  * @property {string} value
- * @property {boolean} negative
+ * @property {boolean} [negative]
  */
 
 class QueryHandler {
@@ -79,22 +80,24 @@ class QueryHandler {
     }
 
     /**
-     * @param {string | CustomCommand} [key]
-     * @param {string} [value]
-     * @param {boolean} [negative]
+     * @param {QueryTerm[]} newTerms
      */
-    set(key, value, negative = false) {
+    set(newTerms) {
         const { terms } = this;
         const qParams = [];
         const hParams = [];
-        const existing = terms.find(term => term.key === key);
 
-        if (existing) {
-            existing.value = value;
-            existing.negative = negative;
-        } else if (key) {
-            terms.push({ key, value, negative });
+        for (const term of newTerms) {
+            const existing = this.get(term.key);
+            if (existing) {
+                existing.value = term.value;
+                existing.negative = term.negative;
+            } else {
+                terms.push(term);
+            }
         }
+
+        console.log('termsssss', JSON.stringify(terms, null, 2));
 
         for (const term of this.terms) {
             if (customCommands.includes(term.key)) {

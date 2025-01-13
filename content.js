@@ -455,6 +455,7 @@ function hashChange(event) {
 
 function onLoad() {
   globalThis.setupSearchInterceptor();
+  globalThis.extendFilters();
   // reorderPRs();
   // addApprovedByMeButton();
 }
