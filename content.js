@@ -354,8 +354,10 @@ async function reorderPRs() {
       elementByPRNumber[prNumber] = el;
     }
 
-    // clear container
-    container.innerHTML = '';
+    const hasMatchingPRs = pullRequests.some(pr => elementByPRNumber[pr.number]);
+    if (!hasMatchingPRs) return;
+
+    console.log('matching')
 
     const tree = buildTree(pullRequests);
     const { byHead = {} } = tree;
@@ -395,6 +397,9 @@ async function reorderPRs() {
         traverseTree(child, depth + 1);
       }
     }
+
+    // clear container
+    container.innerHTML = '';
 
     traverseTree(tree);
 
