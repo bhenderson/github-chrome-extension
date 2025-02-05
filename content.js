@@ -335,7 +335,6 @@ async function reorderPRs() {
     // add class to container to prevent reordering on navigation
     if (container.classList.contains('reordered')) return;
 
-    console.log('reordering PRs');
     container.classList.add('reordered');
 
     // Get all PR elements and convert to array for sorting
@@ -356,8 +355,6 @@ async function reorderPRs() {
 
     const hasMatchingPRs = pullRequests.some(pr => elementByPRNumber[pr.number]);
     if (!hasMatchingPRs) return;
-
-    console.log('matching')
 
     const tree = buildTree(pullRequests);
     const { byHead = {} } = tree;
