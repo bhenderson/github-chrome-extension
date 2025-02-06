@@ -214,27 +214,6 @@ function getBaseBranchColor(byHead, pr) {
   return `hsl(${hue}, 70%, 85%)`; // High lightness, moderate saturation for pastel effect
 }
 
-function updateSortParameter() {
-  // Find the search form and input
-  const searchForm = /** @type {HTMLFormElement} */ (document.querySelector('form.subnav-search'));
-  const searchInput = /** @type {HTMLInputElement} */ (searchForm?.querySelector('input[name="q"]'));
-  if (!searchForm || !searchInput) return;
-
-  // when the UI loads, this is the default, but it isn't in the URL
-  const currentQuery = searchInput.value
-  let newQuery = currentQuery;
-
-  // Make sure that PRs are sorted by creation time
-  if (!currentQuery.includes('sort:created-asc')) {
-    newQuery += ' sort:created-asc';
-  }
-
-  if (currentQuery.trim() !== newQuery.trim()) {
-    searchInput.value = newQuery;
-    searchForm.requestSubmit();
-  }
-}
-
 /**
  * @template T
  * @param {Array<T>} array
@@ -318,14 +297,13 @@ function showReviewers(pr, currentUser, node) {
 
 async function reorderPRs() {
   try {
-    const pathParts = window.location.pathname.split('/');
+    const { pulls, owner, repo } = prListPage();
+    if (!pulls) return;
 
-    if (!pathParts.includes('pulls')) return;
+    const hasDependencyTree = globalThis.queryHandler.has('dependency:tree');
+    console.log('hasDependencyTree', hasDependencyTree);
+    if (!hasDependencyTree) return;
 
-    const owner = pathParts[1];
-    const repo = pathParts[2];
-
-    updateSortParameter();
     const token = getGithubToken();
 
 
@@ -456,14 +434,18 @@ function hashChange(event) {
 function onLoad() {
   globalThis.setupSearchInterceptor();
   globalThis.extendFilters();
-  // reorderPRs();
+  reorderPRs();
   // addApprovedByMeButton();
 }
 
-function onPRListPage() {
+function prListPage() {
   const pathParts = window.location.pathname.split('/');
 
-  return pathParts[3] === 'pulls';
+  const owner = pathParts[1];
+  const repo = pathParts[2];
+  const pulls = pathParts[3] === 'pulls';
+
+  return { pulls, owner, repo };
 }
 
 // Run immediately
@@ -472,7 +454,7 @@ onLoad();
 // Listen for Turbo navigation events
 document.addEventListener('turbo:render', () => {
   // Only run if we're on a PR list page
-  if (onPRListPage()) {
+  if (prListPage().pulls) {
     onLoad();
   }
 });

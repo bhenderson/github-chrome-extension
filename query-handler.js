@@ -9,32 +9,44 @@ const customCommands = /** @type {const} */ ([
 /** @typedef { keyof typeof customCommands } CustomCommand */
 
 /**
+ * Term keys that are not allowed to be duplicated
+ * 
+ * @type {const}
+ */
+const uniqueTerms = ['draft', 'archived', 'sort']
+
+/**
  * @typedef {Object} QueryTerm
  * @property {string} key
  * @property {string} value
- * @property {boolean} [negative]
+ * @property {boolean} negative
  */
 
 class QueryHandler {
-    static set(input) {
-        return new QueryHandler(input).set();
+    static get input() {
+        return new QueryHandler().input;
     }
 
-    constructor(input) {
-        this._input = input;
+    static set(input) {
+        const qh = new QueryHandler()
+        
+        qh.set(input);
     }
+
+    extraInput = '';
 
     get input() {
-        if (this._input) return this._input;
-        const hash = window.location.hash;
-        const query = new URLSearchParams(window.location.search);
-        const q = query.get('q') || '';
-
-        return `${q} ${hash}`;
+        return this.terms.map(this.serialize).join(' ');
     }
 
     get query() {
-        return this.input.split(' ').filter(Boolean);
+        const { searchInput } = getFormInput();
+        const hash = window.location.hash?.replace('#', '');
+        const query = new URLSearchParams(window.location.search);
+        const q = query.get('q') || '';
+        const input = [searchInput.value, q, hash, this.extraInput].filter(Boolean).join(' ');
+
+        return input.split(' ').filter(Boolean);
     }
 
     get terms() {
@@ -43,13 +55,17 @@ class QueryHandler {
 
         for (const token of this.query) {
             // allow strings that don't match and store them as the key with an undefined value
-            const [, negative, key = token, value] = /^(-)?([^:]+):(.+)$/.exec(token) || [];
+            const [, dash, key = token, value] = /^(-)?([^:]+):(.+)$/.exec(token) || [];
+            const negative = !!dash;
+            // const existing = terms.find(t => t.key === key && (t.value === value || uniqueTerms.includes(t.key)));
+            // ignore negative when checking for existing terms
+            const existing = terms.find(t => this.serialize(t) === this.serialize({ key, value }));
 
-            terms.push({
-                key,
-                value,
-                negative,
-            });
+            if (existing) {
+                existing.negative = negative;
+            } else {
+                terms.push({ key, value, negative });
+            }
         }
 
         return terms;
@@ -69,35 +85,30 @@ class QueryHandler {
      */
     serialize(term) {
         const { key, value, negative } = term;
+        let result = '';
 
-        if (value === undefined) return key;
+        if (negative) result += '-';
+        result += key;
+        if (value) result += `:${value}`;
 
-        return `${negative ? '-' : ''}${key}:${value}`;
+        return result;
     }
 
-    has(key) {
-        return !!this.get(key);
+    has(value) {
+        return !!this.terms.find(term => this.serialize(term) === value);
     }
 
     /**
-     * @param {QueryTerm[]} newTerms
+     * @param {QueryTerm[] | string} newTerms
+     * @returns {string}
      */
-    set(newTerms) {
-        const { terms } = this;
-        const qParams = [];
-        const hParams = [];
-
-        for (const term of newTerms) {
-            const existing = this.get(term.key);
-            if (existing) {
-                existing.value = term.value;
-                existing.negative = term.negative;
-            } else {
-                terms.push(term);
-            }
+    url(newTerms) {
+        if (newTerms) {
+          this.extraInput = typeof newTerms === 'string' ? newTerms : newTerms.map(this.serialize).join(' ');
         }
 
-        console.log('termsssss', JSON.stringify(terms, null, 2));
+        const qParams = [];
+        const hParams = [];
 
         for (const term of this.terms) {
             if (customCommands.includes(term.key)) {
@@ -111,28 +122,46 @@ class QueryHandler {
         const newQuery = new URLSearchParams(window.location.search);
         newQuery.set('q', qParams.join(' '));
 
-        const newUrl = `${window.location.pathname}?${newQuery}#${newHash}`;
-        window.location.replace(newUrl);
+        // reset
+        this.extraInput = '';
+
+        return `${window.location.pathname}?${newQuery}#${newHash}`;
     }
+
+    /**
+     * @param {QueryTerm[] | string} [newTerms]
+     */
+    set(newTerms = []) {
+        window.location.replace(this.url(newTerms));
+    }
+}
+
+function getFormInput() {
+    const searchForm = /** @type {HTMLFormElement} */ (document.querySelector('form.subnav-search'));
+    const searchInput = /** @type {HTMLInputElement} */ (searchForm?.querySelector('input[name="q"]'));
+
+    if (!searchForm || !searchInput) return {};
+
+    return { searchForm, searchInput };
 }
 
 
 function setupSearchInterceptor() {
-    const searchForm = /** @type {HTMLFormElement} */ (document.querySelector('form.subnav-search'));
-    const searchInput = /** @type {HTMLInputElement} */ (searchForm?.querySelector('input[name="q"]'));
-    if (!searchForm || !searchInput) return;
+    const { searchForm, searchInput } = getFormInput();
+    if (!searchForm) return;
 
+    const newValue = QueryHandler.input;
+    console.log({ newValue });
+    searchInput.value = newValue;
+    
     searchForm.addEventListener('submit', (event) => {
         event.preventDefault();
 
-        const inputValue = searchInput.value;
-        // save the current hash as well
-        const input = `${inputValue} ${window.location.hash}`;
-
-        QueryHandler.set(input);
+        QueryHandler.set();
     });
 }
 
+console.log('foooooooooooooo')
 globalThis.queryHandler = new QueryHandler();
 
 Object.assign(globalThis, {
