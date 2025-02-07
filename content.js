@@ -73,12 +73,12 @@ const PullRequestReviewDecision = /** @type {const} */ ({
  */
 
 /**
- * @param {string} token
  * @param {string} owner
  * @param {string} repo
  * @returns {Promise<{currentUser: string, pullRequests: PullRequest[]}>}
  */
-async function getPullRequests(token, owner, repo) {
+async function getPullRequests(owner, repo) {
+  const token = getGithubToken();
   const query = `query { 
     viewer {
       login
@@ -254,6 +254,13 @@ function createReviewElements(reviews, currentUser) {
 }
 
 /**
+ * Adds reviewer names to the PR description.
+ * 
+ * @example
+ * ```
+ * • Approved by user1, you, user2
+ * ```
+ * 
  * @param {PullRequest} pr
  * @param {string} currentUser
  * @param {HTMLElement} node
@@ -295,17 +302,10 @@ function showReviewers(pr, currentUser, node) {
   }
 }
 
-async function reorderPRs() {
+async function handlePRList() {
   try {
     const { pulls, owner, repo } = prListPage();
     if (!pulls) return;
-
-    const hasDependencyTree = globalThis.queryHandler.has('dependency:tree');
-    console.log('hasDependencyTree', hasDependencyTree);
-    if (!hasDependencyTree) return;
-
-    const token = getGithubToken();
-
 
     // Get the container and all PR elements
     const container = document.querySelector('.js-navigation-container');
@@ -313,7 +313,6 @@ async function reorderPRs() {
 
     // add class to container to prevent reordering on navigation
     if (container.classList.contains('reordered')) return;
-
     container.classList.add('reordered');
 
     // Get all PR elements and convert to array for sorting
@@ -322,7 +321,7 @@ async function reorderPRs() {
       return id && id.startsWith('issue_');
     });
 
-    const { currentUser, pullRequests } = await getPullRequests(token, owner, repo);
+    const { currentUser, pullRequests } = await getPullRequests(owner, repo);
 
     /** @type {Record<string, Element>} Maps PR number to their DOM element */
     const elementByPRNumber = {};
@@ -383,59 +382,9 @@ async function reorderPRs() {
     console.error('Error fetching PRs:', error);
     if (error.status === 401) {
       localStorage.removeItem('github_token');
-      reorderPRs();
+      handlePRList();
     }
   }
-}
-
-const ApprovedByMeFilterText = {
-  active: 'Clear approved by me filter',
-  inactive: 'Filter PRs approved by me',
-}
-
-const approvedByMeFilterValue = 'approved-by:@me';
-
-function addApprovedByMeButton() {
-  const wrapper = document.querySelector('.issues-reset-query-wrapper');
-  if (wrapper && !wrapper.querySelector('.approved-by-me-filter')) {
-    const filterButton = document.createElement('button');
-    filterButton.className = 'btn btn-sm ml-2 approved-by-me-filter';
-    filterButton.onclick = () => toggleApprovedByMeFilter(filterButton);
-
-    wrapper.appendChild(filterButton);
-
-    toggleApprovedByMeFilter(filterButton, true);
-  }
-}
-
-/**
- * @param {HTMLButtonElement} filterButton
- * @param {boolean} initial
- */
-function toggleApprovedByMeFilter(filterButton, initial = false) {
-  const { hashParams } = globalThis;
-  let value = hashParams.has(approvedByMeFilterValue);
-
-  if (!initial) {
-    value = !value;
-  }
-
-  filterButton.textContent = value ? ApprovedByMeFilterText.active : ApprovedByMeFilterText.inactive;
-  hashParams.set(approvedByMeFilterValue, value);
-}
-
-/**
- * @param {HashChangeEvent} event 
- */
-function hashChange(event) {
-  console.log('hashChange', event);
-}
-
-function onLoad() {
-  globalThis.setupSearchInterceptor();
-  globalThis.extendFilters();
-  reorderPRs();
-  // addApprovedByMeButton();
 }
 
 function prListPage() {
@@ -446,6 +395,12 @@ function prListPage() {
   const pulls = pathParts[3] === 'pulls';
 
   return { pulls, owner, repo };
+}
+
+function onLoad() {
+  globalThis.setupSearchInterceptor();
+  globalThis.extendFilters();
+  handlePRList();
 }
 
 // Run immediately

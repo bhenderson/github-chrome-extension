@@ -22,15 +22,30 @@ const uniqueTerms = ['draft', 'archived', 'sort']
  * @property {boolean} negative
  */
 
+/**
+ * @typedef {Object} QueryHandlerOptions
+ * @property {boolean} skipHash
+ */
+
 class QueryHandler {
-    static get input() {
-        return new QueryHandler().input;
+    /**
+     * @param {QueryHandlerOptions} opts
+     */
+    static input(opts = {}) {
+        return new QueryHandler(opts).input;
     }
 
     static set(input) {
         const qh = new QueryHandler()
         
         qh.set(input);
+    }
+
+    /**
+     * @param {QueryHandlerOptions} opts
+     */
+    constructor(opts = {}) {
+        this.skipHash = opts.skipHash || false;
     }
 
     extraInput = '';
@@ -41,12 +56,12 @@ class QueryHandler {
 
     get query() {
         const { searchInput } = getFormInput();
-        const hash = window.location.hash?.replace('#', '');
+        const hash = this.skipHash ? '' : window.location.hash?.replace('#', '');
         const query = new URLSearchParams(window.location.search);
         const q = query.get('q') || '';
-        const input = [searchInput.value, q, hash, this.extraInput].filter(Boolean).join(' ');
+        const input = [searchInput.value, q, hash, this.extraInput]
 
-        return input.split(' ').filter(Boolean);
+        return input.join(' ').split(' ').filter(Boolean);
     }
 
     get terms() {
@@ -107,10 +122,13 @@ class QueryHandler {
           this.extraInput = typeof newTerms === 'string' ? newTerms : newTerms.map(this.serialize).join(' ');
         }
 
+        const { terms } = this;
         const qParams = [];
         const hParams = [];
 
-        for (const term of this.terms) {
+        console.log(JSON.stringify(terms, null, 2));
+
+        for (const term of terms) {
             if (customCommands.includes(term.key)) {
                 hParams.push(this.serialize(term));
             } else {
@@ -150,9 +168,10 @@ function setupSearchInterceptor() {
     const { searchForm, searchInput } = getFormInput();
     if (!searchForm) return;
 
-    const newValue = QueryHandler.input;
-    console.log({ newValue });
-    searchInput.value = newValue;
+    const newValue = QueryHandler.input({skipHash: true});
+    if (newValue.trim() !== searchInput.value.trim()) {
+        searchInput.value = newValue;
+    }
     
     searchForm.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -161,7 +180,6 @@ function setupSearchInterceptor() {
     });
 }
 
-console.log('foooooooooooooo')
 globalThis.queryHandler = new QueryHandler();
 
 Object.assign(globalThis, {
