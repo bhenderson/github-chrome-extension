@@ -19,7 +19,7 @@ function extendSortFilters() {
     const divider = /** @type {HTMLDivElement} */ (sortMenu?.querySelector('div.SelectMenu-divider'));
     if (!sortMenu || !divider) return;
 
-    const link = createLink('Dependency Tree', globalThis.queryHandler.url([
+    const link = createLink('Dependency Tree', queryHandler.url([
         { key: 'dependency', value: 'tree', negative: false },
         { key: 'sort', value: 'created-asc', negative: false },
     ]));
@@ -33,11 +33,11 @@ function extendReviewersFilters() {
     const list = /** @type {HTMLUListElement} */ (reviewersMenu?.querySelector('.SelectMenu-list'));
     if (!reviewersMenu || !list) return;
 
-    const approvedByMeLink = createLink('Approved by me', globalThis.queryHandler.url([
+    const approvedByMeLink = createLink('Approved by me', queryHandler.url([
         { key: 'approved-by', value: '@me', negative: false },
     ]));
 
-    const notApprovedByMeLink = createLink('Not approved by me', globalThis.queryHandler.url([
+    const notApprovedByMeLink = createLink('Not approved by me', queryHandler.url([
         { key: 'approved-by', value: '@me', negative: true },
     ]));
 
@@ -48,7 +48,3 @@ function extendFilters() {
     extendSortFilters();
     extendReviewersFilters();
 }
-
-Object.assign(globalThis, {
-    extendFilters,
-}); 

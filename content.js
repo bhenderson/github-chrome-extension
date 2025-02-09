@@ -4,216 +4,6 @@
 // - [ ] Add a button in the UI to toggle this feature.
 // - [ ] Add a button to filter PRs by approved-by:@me which is not currently supported in the UI.
 
-
-const PullRequestReviewState = /** @type {const} */ ({
-  APPROVED: 'APPROVED',
-  CHANGES_REQUESTED: 'CHANGES_REQUESTED',
-  COMMENTED: 'COMMENTED',
-  DISMISSED: 'DISMISSED',
-  PENDING: 'PENDING'
-});
-
-/** @typedef {typeof PullRequestReviewState[keyof typeof PullRequestReviewState]} PullRequestReviewState */
-
-/**
- * @typedef {Object} Review
- * @property {string} author
- * @property {PullRequestReviewState} state
- * @property {string} html_url
- */
-
-const PullRequestReviewDecision = /** @type {const} */ ({
-  APPROVED: 'APPROVED',
-  CHANGES_REQUESTED: 'CHANGES_REQUESTED',
-  REVIEW_REQUIRED: 'REVIEW_REQUIRED',
-  NONE: null
-});
-
-/** @typedef {typeof PullRequestReviewDecision[keyof typeof PullRequestReviewDecision]} PullRequestReviewDecision */
-
-/**
- * @typedef {Object} PullRequest
- * @property {number} number
- * @property {string} title
- * @property {string} url
- * @property {string} baseRefName
- * @property {string} headRefName
- * @property {string} author
- * @property {Review[]} reviews
- * @property {PullRequestReviewDecision} reviewDecision
- */
-
-/**
- * @typedef {Object} GraphQLResponse
- * @property {Object} data
- * @property {Object} data.viewer
- * @property {string} data.viewer.login
- * @property {Object} data.repository
- * @property {Object} data.repository.pullRequests
- * @property {Array<{
- *   number: number,
- *   title: string,
- *   url: string,
- *   author: {
- *     login: string
- *   },
- *   baseRefName: string,
- *   headRefName: string,
- *   latestReviews: {
- *     nodes: Array<{
- *       author: {
- *         login: string,
- *         url: string
- *       },
- *       state: PullRequestReviewState
- *     }>
- *   },
- *   reviewDecision: PullRequestReviewDecision
- * }>} data.repository.pullRequests.nodes
- */
-
-/**
- * @param {string} owner
- * @param {string} repo
- * @returns {Promise<{currentUser: string, pullRequests: PullRequest[]}>}
- */
-async function getPullRequests(owner, repo) {
-  const token = getGithubToken();
-  const query = `query { 
-    viewer {
-      login
-    }
-    repository(owner: "${owner}", name: "${repo}") { 
-      pullRequests(first: 100, states: [OPEN]) { 
-        nodes { 
-          number 
-          title 
-          url 
-          author { 
-            login 
-          }
-          baseRefName
-          headRefName 
-          latestReviews(first: 100) { 
-            nodes { 
-              author { 
-                login
-                url
-              } 
-              state 
-            } 
-          } 
-          reviewDecision 
-        } 
-      } 
-    } 
-  }`;
-
-  const response = await fetch('https://api.github.com/graphql', {
-    method: 'POST',
-    headers: {
-      'Authorization': `bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query }),
-  });
-
-  /** @type {GraphQLResponse} */
-  const data = await response.json();
-
-  return {
-    currentUser: data.data.viewer.login,
-    pullRequests: data.data.repository.pullRequests.nodes.map(pr => /** @type {PullRequest} */({
-      number: pr.number,
-      title: pr.title,
-      url: pr.url,
-      author: pr.author.login,
-      baseRefName: pr.baseRefName,
-      headRefName: pr.headRefName,
-      reviews: pr.latestReviews.nodes.map(review => /** @type {Review} */({
-        author: review.author.login,
-        state: review.state,
-        html_url: review.author.url,
-      })),
-      reviewDecision: pr.reviewDecision,
-    }))
-  };
-}
-
-function getGithubToken() {
-  let token = localStorage.getItem('github_token');
-
-  if (!token) {
-    token = prompt('Please enter your GitHub API token:');
-    if (token) {
-      localStorage.setItem('github_token', token);
-    }
-  }
-
-  if (!token) {
-    throw new Error('GitHub token not provided');
-  }
-
-  return token;
-}
-
-/**
- * @typedef {Record<string, TreeNode>} PRHeads
- */
-
-/**
- * @typedef {Object} TreeNode
- * @property {PullRequest} [pr]
- * @property {TreeNode[]} children
- * @property {PRHeads} [byHead]
- */
-
-/**
- * @param {PullRequest[]} prs
- */
-function buildTree(prs) {
-  /** @type {PRHeads} */
-  const byHead = {};
-  /** @type {TreeNode} */
-  const tree = { pr: undefined, children: [], byHead };
-
-  for (const pr of prs) {
-    byHead[pr.headRefName] = { pr, children: [] };
-  }
-
-  for (const pr of prs) {
-    const leaf = byHead[pr.baseRefName] || tree;
-
-    leaf.children.push(byHead[pr.headRefName]);
-  }
-
-  return tree;
-}
-
-/**
- * @param {PRHeads} byHead
- * @param {PullRequest} pr
- */
-function getBaseBranch(byHead, pr) {
-  const basePR = byHead[pr.baseRefName]?.pr
-
-  if (!basePR) return pr
-
-  return getBaseBranch(byHead, basePR);
-}
-
-/**
- * @param {PRHeads} byHead
- * @param {PullRequest} pr
- */
-function getBaseBranchColor(byHead, pr) {
-  const baseBranch = getBaseBranch(byHead, pr);
-
-  // Generate pastel color based on PR number
-  const hue = (Number(baseBranch.number) * 137.508) % 360; // Golden angle approximation
-  return `hsl(${hue}, 70%, 85%)`; // High lightness, moderate saturation for pastel effect
-}
-
 /**
  * @template T
  * @param {Array<T>} array
@@ -302,89 +92,87 @@ function showReviewers(pr, currentUser, node) {
   }
 }
 
+function setupPersistSortHandler() {
+  // When the option changes, if we're setting it to true and sort is not applied, apply the default.
+  globalOptions.watch('persistSortAsc', value => {
+    const hasSort = queryHandler.get('sort');
+    if (!value || hasSort) return;
+
+    queryHandler.set([{ key: 'sort', value: 'created-asc', negative: false }]);
+  }, true)
+}
+
 async function handlePRList() {
-  try {
-    const { pulls, owner, repo } = prListPage();
-    if (!pulls) return;
+  // Make sure we have a token
+  const { token } = globalOptions;
+  if (!token) return;
 
-    // Get the container and all PR elements
-    const container = document.querySelector('.js-navigation-container');
-    if (!container) return;
+  // Get the container and all PR elements
+  const container = document.querySelector('.js-navigation-container');
+  if (!container) return;
 
-    // add class to container to prevent reordering on navigation
-    if (container.classList.contains('reordered')) return;
-    container.classList.add('reordered');
+  setupPersistSortHandler();
+  return;
 
-    // Get all PR elements and convert to array for sorting
-    const prElements = Array.from(container.children).filter(el => {
-      const id = el.id;
-      return id && id.startsWith('issue_');
-    });
+  // Get all PR elements and convert to array for sorting
+  const prElements = Array.from(container.children).filter(el => el.id?.startsWith('issue_'));
 
-    const { currentUser, pullRequests } = await getPullRequests(owner, repo);
+  const { currentUser, pullRequests } = await getPullRequests();
 
-    /** @type {Record<string, Element>} Maps PR number to their DOM element */
-    const elementByPRNumber = {};
+  /** @type {Record<string, Element>} Maps PR number to their DOM element */
+  const elementByPRNumber = {};
 
-    for (const el of prElements) {
-      const prNumber = el.id.replace('issue_', '');
-      elementByPRNumber[prNumber] = el;
-    }
+  for (const el of prElements) {
+    const prNumber = el.id.replace('issue_', '');
+    elementByPRNumber[prNumber] = el;
+  }
 
-    const hasMatchingPRs = pullRequests.some(pr => elementByPRNumber[pr.number]);
-    if (!hasMatchingPRs) return;
+  const hasMatchingPRs = pullRequests.some(pr => elementByPRNumber[pr.number]);
+  if (!hasMatchingPRs) return;
 
-    const tree = buildTree(pullRequests);
-    const { byHead = {} } = tree;
+  const tree = buildTree(pullRequests);
+  const { byHead = {} } = tree;
 
-    /**
-     * @param {TreeNode} node
-     * @param {number} depth
-     */
-    function traverseTree(node, depth = 0) {
-      const { pr, children } = node;
-      if (pr && elementByPRNumber[pr.number]) {
-        const el = elementByPRNumber[pr.number];
-        // is this PR part of a chain of dependencies?
-        const isInChain = children.length > 0 || depth > 1;
+  /**
+   * @param {TreeNode} node
+   * @param {number} depth
+   */
+  function traverseTree(node, depth = 0) {
+    const { pr, children } = node;
+    if (pr && elementByPRNumber[pr.number]) {
+      const el = elementByPRNumber[pr.number];
+      // is this PR part of a chain of dependencies?
+      const isInChain = children.length > 0 || depth > 1;
 
-        // re add to container in order of dependency
-        container?.appendChild(el);
+      // re add to container in order of dependency
+      container?.appendChild(el);
 
-        const openedBySpan = el.querySelector('.opened-by');
-        const statusSpan = openedBySpan?.parentElement;
+      const openedBySpan = el.querySelector('.opened-by');
+      const statusSpan = openedBySpan?.parentElement;
 
-        if (!statusSpan) return;
+      if (!statusSpan) return;
 
-        if (isInChain) {
-          const depthLabelContainer = document.createElement('div');
-          const depthLabel = document.createElement('span');
-          depthLabel.classList.add('base-branch-label');
-          depthLabel.textContent = `${depth}`;
-          depthLabel.style.backgroundColor = getBaseBranchColor(byHead, pr);
-          depthLabelContainer.appendChild(depthLabel);
+      if (isInChain) {
+        const depthLabelContainer = document.createElement('div');
+        const depthLabel = document.createElement('span');
+        depthLabel.classList.add('base-branch-label');
+        depthLabel.textContent = `${depth}`;
+        depthLabel.style.backgroundColor = getBaseBranchColor(byHead, pr);
+        depthLabelContainer.appendChild(depthLabel);
 
-          statusSpan.prepend(depthLabel, ' ');
-        }
-        showReviewers(pr, currentUser, statusSpan);
+        statusSpan.prepend(depthLabel, ' ');
       }
-      for (const child of children) {
-        traverseTree(child, depth + 1);
-      }
+      showReviewers(pr, currentUser, statusSpan);
     }
-
-    // clear container
-    container.innerHTML = '';
-
-    traverseTree(tree);
-
-  } catch (error) {
-    console.error('Error fetching PRs:', error);
-    if (error.status === 401) {
-      localStorage.removeItem('github_token');
-      handlePRList();
+    for (const child of children) {
+      traverseTree(child, depth + 1);
     }
   }
+
+  // clear container
+  container.innerHTML = '';
+
+  traverseTree(tree);
 }
 
 function prListPage() {
@@ -398,18 +186,21 @@ function prListPage() {
 }
 
 function onLoad() {
-  globalThis.setupSearchInterceptor();
-  globalThis.extendFilters();
+  console.log('onLoadddddddd');
+  if (!prListPage().pulls) return;
+
+  extendFilters();
+  addControlMenu();
+
   handlePRList();
 }
 
-// Run immediately
-onLoad();
+window.addEventListener('load', onLoad);
 
 // Listen for Turbo navigation events
 document.addEventListener('turbo:render', () => {
-  // Only run if we're on a PR list page
-  if (prListPage().pulls) {
-    onLoad();
-  }
+  console.log('turbo:render');
+  setTimeout(() => {
+    onLoad()
+  }, 500);
 });
