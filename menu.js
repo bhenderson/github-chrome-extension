@@ -24,27 +24,27 @@ function addCloseMenuIcon(parentElement) {
  * @param {Options} option 
  * @returns 
  */
-function createMenuLink(text, option) {
-    const link = document.createElement('a');
-    link.classList.add('SelectMenu-item');
+function createMenuButton(text, option) {
+    const button = document.createElement('button');
+    button.classList.add('SelectMenu-item');
     const check = document.createElement('span');
     check.classList.add('SelectMenu-icon');
 
-    addCloseMenuIcon(link);
+    addCloseMenuIcon(button);
 
     const span = document.createElement('span');
     span.textContent = text;
-    link.append(check, span);
+    button.append(check, span);
 
     globalOptions.watch(option, (value) => {
-        link.setAttribute('aria-checked', String(value));
+        button.setAttribute('aria-checked', String(value));
     }, true)
 
-    link.onclick = () => {
+    button.onclick = () => {
         globalOptions.set(option, !globalOptions.get(option));
     }
 
-    return link;
+    return button;
 }
 
 function addControlMenu() {
@@ -68,10 +68,10 @@ function addControlMenu() {
     list.classList.add('SelectMenu-list')
 
     list.append(
-        createMenuLink('Group By Dependency', 'groupByDependency'),
-        createMenuLink('Persist Sort Asc', 'persistSortAsc'),
-        createMenuLink('Filter Approved By Me', 'filterApprovedByMe'),
-        createMenuLink('Filter Not Approved By Me', 'filterNotApprovedByMe'),
+        createMenuButton('Group By Dependency', 'groupByDependency'),
+        createMenuButton('Persist Sort Asc', 'persistSortAsc'),
+        createMenuButton('Filter Approved By Me', 'filterApprovedByMe'),
+        createMenuButton('Filter Not Approved By Me', 'filterNotApprovedByMe'),
     )
 
     menu.append(list);
