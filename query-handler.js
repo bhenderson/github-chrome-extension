@@ -11,7 +11,7 @@ const uniqueTerms = ['draft', 'archived', 'sort']
  * @typedef {Object} QueryTerm
  * @property {string} key
  * @property {string} value
- * @property {boolean} negative
+ * @property {boolean} [negative] Optionally set to true to negate the term
  */
 
 /**

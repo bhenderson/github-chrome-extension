@@ -14,9 +14,8 @@
       "matches": ["https://github.com/*"],
       "js": [
         "options.js",
-        "filters.js",
-        "menu.js",
         "query-handler.js",
+        "menu.js",
         "github.js",
         "tree.js",
         "content.js"

@@ -1,9 +1,5 @@
 // @ts-check
 
-// TODO
-// - [ ] Add a button in the UI to toggle this feature.
-// - [ ] Add a button to filter PRs by approved-by:@me which is not currently supported in the UI.
-
 /**
  * @template T
  * @param {Array<T>} array
@@ -98,28 +94,45 @@ function setupPersistSortHandler() {
     const hasSort = queryHandler.get('sort');
     if (!value || hasSort) return;
 
-    queryHandler.set([{ key: 'sort', value: 'created-asc', negative: false }]);
+    queryHandler.set([{ key: 'sort', value: 'created-asc' }]);
   }, true)
 }
 
-async function handlePRList() {
-  // Make sure we have a token
-  const { token } = globalOptions;
-  if (!token) return;
+const defaultSortKey = '__gce_defaultSort';
+const dependencySortKey = '__gce_dependencySort';
 
+/**
+ * @returns {{ container?: HTMLDivElement, prElements?: HTMLElement[] }}
+ */
+function getPRElements() {
   // Get the container and all PR elements
-  const container = document.querySelector('.js-navigation-container');
-  if (!container) return;
-
-  setupPersistSortHandler();
-  return;
+  const container = /** @type {HTMLDivElement} */ (document.querySelector('.js-navigation-container'));
+  if (!container) return {};
 
   // Get all PR elements and convert to array for sorting
-  const prElements = Array.from(container.children).filter(el => el.id?.startsWith('issue_'));
+  const prElements = /** @type {HTMLElement[]} */ (Array.from(container.children).filter(el => el.id?.startsWith('issue_')));
+
+  return { container, prElements };
+}
+
+function setPRDefaultSort() {
+  const { prElements } = getPRElements();
+  if (!prElements) return;
+
+  for (const idx in prElements) {
+    const el = prElements[idx];
+    el.dataset[defaultSortKey] = String(idx);
+  }
+}
+
+/** Set sort but also extend the view with approvers, etc. */
+async function setDependencySort() {
+  const { container, prElements } = getPRElements();
+  if (!container || !prElements) return;
 
   const { currentUser, pullRequests } = await getPullRequests();
 
-  /** @type {Record<string, Element>} Maps PR number to their DOM element */
+  /** @type {Record<string, HTMLElement>} Maps PR number to their DOM element */
   const elementByPRNumber = {};
 
   for (const el of prElements) {
@@ -132,6 +145,7 @@ async function handlePRList() {
 
   const tree = buildTree(pullRequests);
   const { byHead = {} } = tree;
+  let sortIndex = 0;
 
   /**
    * @param {TreeNode} node
@@ -144,8 +158,7 @@ async function handlePRList() {
       // is this PR part of a chain of dependencies?
       const isInChain = children.length > 0 || depth > 1;
 
-      // re add to container in order of dependency
-      container?.appendChild(el);
+      el.dataset[dependencySortKey] = String(sortIndex++);
 
       const openedBySpan = el.querySelector('.opened-by');
       const statusSpan = openedBySpan?.parentElement;
@@ -169,10 +182,46 @@ async function handlePRList() {
     }
   }
 
-  // clear container
+  traverseTree(tree);
+}
+
+function sortByKey(key) {
+  const { container, prElements } = getPRElements();
+  if (!container || !prElements) return;
+
+  console.log('sorting by key', key);
+
   container.innerHTML = '';
 
-  traverseTree(tree);
+  prElements.sort((a, b) => {
+    const aIdx = a.dataset[key];
+    const bIdx = b.dataset[key];
+
+    return Number(aIdx) - Number(bIdx);
+  });
+
+  container.append(...prElements);
+}
+
+function setupGroupByDependencyHandler() {
+  setPRDefaultSort();
+  setDependencySort();
+
+  globalOptions.watch('groupByDependency', value => {
+    const sortKey = value ? dependencySortKey : defaultSortKey;
+    sortByKey(sortKey);
+  }, true);
+}
+
+async function handlePRList() {
+  // Make sure we have a token
+  const { token } = globalOptions;
+  if (!token) return;
+
+  setupPersistSortHandler();
+  setupGroupByDependencyHandler();
+  return;
+
 }
 
 function prListPage() {
@@ -186,10 +235,9 @@ function prListPage() {
 }
 
 function onLoad() {
-  console.log('onLoadddddddd');
+  console.log('onLoad');
   if (!prListPage().pulls) return;
 
-  extendFilters();
   addControlMenu();
 
   handlePRList();
