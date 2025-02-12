@@ -116,37 +116,56 @@ class QueryHandler {
     return !!this.terms.find(term => this.serialize(term) === this.serialize(value));
   }
 
-  /**
-   * @param {QueryTerm[] | string} newTerms
-   * @returns {string}
-   */
-  url(newTerms) {
-    if (newTerms) {
-      this.extraInput = typeof newTerms === 'string' ? newTerms : newTerms.map(this.serialize).join(' ');
-    }
-
+  get search() {
     const { terms } = this;
     const qParams = [];
-    const hParams = [];
 
     for (const term of terms) {
-        qParams.push(this.serialize(term));
+      qParams.push(this.serialize(term));
     }
 
     const newQuery = new URLSearchParams(window.location.search);
     newQuery.set('q', qParams.join(' '));
 
-    // reset
-    this.extraInput = '';
-
-    return `${window.location.pathname}?${newQuery}`;
+    return newQuery.toString();
   }
 
   /**
+   * Set the new query (redirects if terms are changing)
+   * 
    * @param {QueryTerm[] | string} [newTerms]
    */
   set(newTerms = []) {
-    window.location.replace(this.url(newTerms));
+    const oldTerms = this.terms;
+
+    if (newTerms) {
+      this.extraInput = typeof newTerms === 'string' ? newTerms : newTerms.map(this.serialize).join(' ');
+    }
+
+    const { terms, search } = this;
+    // reset
+    this.extraInput = '';
+
+    const termsSame = this.compareTerms(oldTerms, terms);
+
+    if (termsSame) return;
+
+    window.location.search = search;
+  }
+
+  /**
+   * Compare to see if the terms have changed
+   * 
+   * @param {QueryTerm[]} oldTerms 
+   * @param {QueryTerm[]} newTerms 
+   * @returns {boolean}
+   */
+  compareTerms(oldTerms, newTerms) {
+    if (oldTerms.length !== newTerms.length) return false;
+
+    return oldTerms.every((term) => {
+      return newTerms.some(newTerm => this.serialize(term) === this.serialize(newTerm));
+    });
   }
 }
 

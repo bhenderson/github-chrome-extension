@@ -1,13 +1,15 @@
 /** 
  * @typedef { 
  *   | 'groupByDependency'
- *   | 'persistSortAsc'
  *   | 'filterApprovedByMe'
  *   | 'filterNotApprovedByMe'
  *   | 'githubToken'
+ *   | 'persistentSearch'
  * } Options 
  */
-/** @typedef {{(value: boolean): unknown}} Callback */
+/**
+ * @typedef {{(value: boolean): unknown}} Callback
+ */
 
 class EventEmitter extends EventTarget {
     on(event, callback) {
@@ -62,8 +64,8 @@ class OptionsHandler {
     }
 
     /**
-     * 
-     * @param {Options} opt 
+     * @template {Options} T
+     * @param {T} opt 
      * @param {Callback} callback 
      * @param {boolean} [initial]
      */

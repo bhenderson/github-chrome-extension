@@ -47,6 +47,32 @@ function createMenuButton(text, option) {
     return button;
 }
 
+function createSearchInput(placeholder) {
+    const div = document.createElement('div');
+    div.className = 'SelectMenu-filter';
+
+    const inputField = document.createElement('input');
+    inputField.type = 'text';
+    inputField.className = 'SelectMenu-input form-control';
+    inputField.placeholder = placeholder;
+    inputField.value = globalOptions.get('persistentSearch');
+
+    inputField.onblur = () => {
+      console.log('setting persistent search', inputField.value);
+      globalOptions.set('persistentSearch', inputField.value);
+    }
+
+    inputField.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        inputField.blur();
+      }
+    });
+
+    div.appendChild(inputField);
+
+    return div;
+}
+
 function addControlMenu() {
     const container = /** @type {HTMLDetailsElement} */ (document.getElementById('repo-content-pjax-container') || document.getElementById('repo-content-turbo-frame'));
     if (!container) return;
@@ -57,32 +83,31 @@ function addControlMenu() {
     const header = document.createElement('header');
     header.classList.add('SelectMenu-header');
 
-    const headerTitle = document.createElement('span')
-    headerTitle.classList.add('SelectMenu-title')
-    headerTitle.innerText = 'Custom Extension Options'
+    const headerTitle = document.createElement('span');
+    headerTitle.classList.add('SelectMenu-title');
+    headerTitle.innerText = 'Custom Extension Options';
     header.append(headerTitle);
 
     menu.append(header);
 
-    const list = document.createElement('div')
-    list.classList.add('SelectMenu-list')
+    const list = document.createElement('div');
+    list.classList.add('SelectMenu-list');
 
     list.append(
         createMenuButton('Group By Dependency', 'groupByDependency'),
-        createMenuButton('Persist Sort Asc', 'persistSortAsc'),
         createMenuButton('Filter Approved By Me', 'filterApprovedByMe'),
         createMenuButton('Filter Not Approved By Me', 'filterNotApprovedByMe'),
-    )
+        createSearchInput('Persistent search field'),
+    );
 
     menu.append(list);
+
     container.append(menu);
 
-    container.style.position = 'relative';
-    menu.style.position = 'absolute';
-    menu.style.top = '0';
-    menu.style.left = '0';
-    menu.style['margin-left'] = '2rem';
+    container.classList.add('gce-container');
+    menu.classList.add('gce-menu');
 }
+
 /*
 <details-menu class="SelectMenu SelectMenu--hasFilter right-0" role="menu" aria-label="Sort by">
     <div class="SelectMenu-modal">

@@ -88,18 +88,16 @@ function showReviewers(pr, currentUser, node) {
   }
 }
 
-function setupPersistSortHandler() {
+function setupPersistSearchHandler() {
   // When the option changes, if we're setting it to true and sort is not applied, apply the default.
-  globalOptions.watch('persistSortAsc', value => {
-    const hasSort = queryHandler.get('sort');
-    if (!value || hasSort) return;
-
-    queryHandler.set([{ key: 'sort', value: 'created-asc' }]);
+  globalOptions.watch('persistentSearch', value => {
+    queryHandler.set(String(value));
   }, true)
 }
 
 const defaultSortKey = '__gce_defaultSort';
 const dependencySortKey = '__gce_dependencySort';
+const approvedByYouKey = '__gce_approvedByYou';
 
 /**
  * @returns {{ container?: HTMLDivElement, prElements?: HTMLElement[] }}
@@ -159,6 +157,7 @@ async function setDependencySort() {
       const isInChain = children.length > 0 || depth > 1;
 
       el.dataset[dependencySortKey] = String(sortIndex++);
+      el.dataset[approvedByYouKey] = String(pr.reviews.some(review => review.author === currentUser && review.state === PullRequestReviewState.APPROVED));
 
       const openedBySpan = el.querySelector('.opened-by');
       const statusSpan = openedBySpan?.parentElement;
@@ -185,14 +184,15 @@ async function setDependencySort() {
   traverseTree(tree);
 }
 
-function sortByKey(key) {
+function getSortKey() {
+  return globalOptions.get('groupByDependency') ? dependencySortKey : defaultSortKey;
+}
+
+function sortByKey() {
+  const key = getSortKey();
   const { container, prElements } = getPRElements();
   if (!container || !prElements) return;
-
-  console.log('sorting by key', key);
-
-  container.innerHTML = '';
-
+  
   prElements.sort((a, b) => {
     const aIdx = a.dataset[key];
     const bIdx = b.dataset[key];
@@ -200,6 +200,22 @@ function sortByKey(key) {
     return Number(aIdx) - Number(bIdx);
   });
 
+  const approvedByYouFlag = globalOptions.get('filterApprovedByMe');
+  const notApprovedByYouFlag = globalOptions.get('filterNotApprovedByMe');
+
+  prElements.forEach(el => {
+    const approvedByYou = el.dataset[approvedByYouKey] === 'true';
+
+    let shouldShow = (!approvedByYouFlag && !notApprovedByYouFlag) ||
+      (approvedByYou && approvedByYouFlag) ||
+      (!approvedByYou && notApprovedByYouFlag);
+
+    console.log({ approvedByYou, approvedByYouFlag, notApprovedByYouFlag, shouldShow });
+
+    el.hidden = !shouldShow;
+  });
+
+  container.innerHTML = '';
   container.append(...prElements);
 }
 
@@ -207,9 +223,18 @@ function setupGroupByDependencyHandler() {
   setPRDefaultSort();
   setDependencySort();
 
-  globalOptions.watch('groupByDependency', value => {
-    const sortKey = value ? dependencySortKey : defaultSortKey;
-    sortByKey(sortKey);
+  globalOptions.watch('groupByDependency', () => {
+    sortByKey();
+  }, true);
+}
+
+function setupFilterHandler() {
+  globalOptions.watch('filterApprovedByMe', () => {
+    sortByKey();
+  }, true);
+
+  globalOptions.watch('filterNotApprovedByMe', () => {
+    sortByKey();
   }, true);
 }
 
@@ -218,10 +243,9 @@ async function handlePRList() {
   const { token } = globalOptions;
   if (!token) return;
 
-  setupPersistSortHandler();
+  setupPersistSearchHandler();
   setupGroupByDependencyHandler();
-  return;
-
+  setupFilterHandler();
 }
 
 function prListPage() {
