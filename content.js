@@ -182,6 +182,8 @@ async function setDependencySort() {
   }
 
   traverseTree(tree);
+
+  sortByKey();
 }
 
 function getSortKey() {
@@ -192,7 +194,7 @@ function sortByKey() {
   const key = getSortKey();
   const { container, prElements } = getPRElements();
   if (!container || !prElements) return;
-  
+
   prElements.sort((a, b) => {
     const aIdx = a.dataset[key];
     const bIdx = b.dataset[key];
@@ -210,8 +212,6 @@ function sortByKey() {
       (approvedByYou && approvedByYouFlag) ||
       (!approvedByYou && notApprovedByYouFlag);
 
-    console.log({ approvedByYou, approvedByYouFlag, notApprovedByYouFlag, shouldShow });
-
     el.hidden = !shouldShow;
   });
 
@@ -225,7 +225,7 @@ function setupGroupByDependencyHandler() {
 
   globalOptions.watch('groupByDependency', () => {
     sortByKey();
-  }, true);
+  });
 }
 
 function setupFilterHandler() {
