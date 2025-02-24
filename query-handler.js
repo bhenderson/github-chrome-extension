@@ -62,7 +62,7 @@ class QueryHandler {
       if (existing) {
         existing.negative = negative;
       } else {
-        terms.push({ key, value, negative });
+        terms.push({ key, value, negative, token });
       }
     }
 
@@ -78,7 +78,7 @@ class QueryHandler {
   }
 
   /**
-   * @param {QueryTerm | string} term
+   * @param {Omit<QueryTerm, 'token'> | string} term
    * @returns {string}
    */
   serialize(term) {
