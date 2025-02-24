@@ -74,11 +74,12 @@ type Options =
   | 'githubToken'
   | 'persistentSearch';
 
-type Callback = (value: boolean) => unknown;
+type Callback = (value: boolean | string) => unknown;
 
 interface QueryTerm {
   key: string;
   value: string;
+  token: string // The raw string value
   negative?: boolean; // Optionally set to true to negate the term
 }
 

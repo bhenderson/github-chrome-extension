@@ -91,7 +91,17 @@ function showReviewers(pr, currentUser, node) {
 function setupPersistSearchHandler() {
   // When the option changes, if we're setting it to true and sort is not applied, apply the default.
   globalOptions.watch('persistentSearch', value => {
-    queryHandler.set(String(value));
+
+    const persistentSearch = String(value)
+    const persistentSearchTerms = persistentSearch.split(' ').map(term => term.trim())
+    const existingQueryTerms = queryHandler.terms.map(term => term.token)
+
+    const missingQueryTerms = persistentSearchTerms.filter(term => !existingQueryTerms.includes(term))
+
+    if (missingQueryTerms.length) {
+      queryHandler.set(missingQueryTerms.join(' '));
+    }
+
   }, true)
 }
 
