@@ -55,7 +55,7 @@ function createSearchInput(placeholder) {
     inputField.type = 'text';
     inputField.className = 'SelectMenu-input form-control';
     inputField.placeholder = placeholder;
-    inputField.value = globalOptions.get('persistentSearch');
+    inputField.value = globalOptions.get('persistentSearch') || '';
 
     inputField.onblur = () => {
       console.log('setting persistent search', inputField.value);
