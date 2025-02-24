@@ -8,14 +8,6 @@ const PullRequestReviewState = /** @type {const} */ ({
   PENDING: 'PENDING'
 });
 
-/** @typedef {typeof PullRequestReviewState[keyof typeof PullRequestReviewState]} PullRequestReviewState */
-
-/**
- * @typedef {Object} Review
- * @property {string} author
- * @property {PullRequestReviewState} state
- * @property {string} html_url
- */
 
 const PullRequestReviewDecision = /** @type {const} */ ({
   APPROVED: 'APPROVED',
@@ -23,49 +15,6 @@ const PullRequestReviewDecision = /** @type {const} */ ({
   REVIEW_REQUIRED: 'REVIEW_REQUIRED',
   NONE: null
 });
-
-/** @typedef {typeof PullRequestReviewDecision[keyof typeof PullRequestReviewDecision]} PullRequestReviewDecision */
-
-/**
- * @typedef {Object} PullRequest
- * @property {number} number
- * @property {string} title
- * @property {string} url
- * @property {string} baseRefName
- * @property {string} headRefName
- * @property {string} author
- * @property {Review[]} reviews
- * @property {PullRequestReviewDecision} reviewDecision
- */
-
-/**
- * @typedef {Object} GraphQLResponse
- * @property {Object} data
- * @property {Object} data.viewer
- * @property {string} data.viewer.login
- * @property {Object} data.repository
- * @property {Object} data.repository.pullRequests
- * @property {Array<{
- *   number: number,
- *   title: string,
- *   url: string,
- *   author: {
- *     login: string
- *   },
- *   baseRefName: string,
- *   headRefName: string,
- *   latestReviews: {
- *     nodes: Array<{
- *       author: {
- *         login: string,
- *         url: string
- *       },
- *       state: PullRequestReviewState
- *     }>
- *   },
- *   reviewDecision: PullRequestReviewDecision
- * }>} data.repository.pullRequests.nodes
- */
 
 /**
  * @returns {Promise<{currentUser: string, pullRequests: PullRequest[]}>}

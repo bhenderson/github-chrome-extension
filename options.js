@@ -1,16 +1,3 @@
-/** 
- * @typedef { 
- *   | 'groupByDependency'
- *   | 'filterApprovedByMe'
- *   | 'filterNotApprovedByMe'
- *   | 'githubToken'
- *   | 'persistentSearch'
- * } Options 
- */
-/**
- * @typedef {{(value: boolean): unknown}} Callback
- */
-
 class EventEmitter extends EventTarget {
     on(event, callback) {
         this.addEventListener(event, callback);
