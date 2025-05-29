@@ -52,21 +52,41 @@ async function getPullRequests() {
     } 
   }`;
 
+
+  if (!token) {
+    console.info(`Github Chrome Extension: Token was not provided. Exiting...`)
+
+    return
+  }
+
   const response = await fetch('https://api.github.com/graphql', {
     method: 'POST',
     headers: {
-      'Authorization': `bearer ${token}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ query }),
   });
 
-  /** @type {GraphQLResponse} */
+  /** @type {GraphQLResponse | GraphQLError} */
   const data = await response.json();
 
+  if ('status' in data && data.status !== '200') {
+    if (data.status === '401') {
+      console.error(`Github Chrome Extension Error: Authorization Error. Is your Github token valid? (Check "github-chrome-extension.githubToken" in localstorage)`)
+    } else {
+      throw new Error(`Github Chrome Extension Error: ${data.message}`)
+    }
+    
+    throw new Error(JSON.stringify(data))
+  } 
+
+  /** @ts-expect-error @type {GraphQLResponse} - Type guard does not work well here... Should be a success type */
+  const responseData = data
+  
   return {
-    currentUser: data.data.viewer.login,
-    pullRequests: data.data.repository.pullRequests.nodes.map(pr => /** @type {PullRequest} */({
+    currentUser: responseData.data.viewer.login,
+    pullRequests: responseData.data.repository.pullRequests.nodes.map(pr => /** @type {PullRequest} */({
       number: pr.number,
       title: pr.title,
       url: pr.url,

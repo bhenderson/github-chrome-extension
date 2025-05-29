@@ -269,7 +269,6 @@ function prListPage() {
 }
 
 function onLoad() {
-  console.log('onLoad');
   if (!prListPage().pulls) return;
 
   addControlMenu();

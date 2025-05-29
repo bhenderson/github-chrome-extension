@@ -66,6 +66,11 @@ interface GraphQLResponse {
     };
   };
 }
+interface GraphQLError {
+  message: string;
+  documentation_ur: string;
+  status: string
+}
 
 type Options =
   | 'groupByDependency'
