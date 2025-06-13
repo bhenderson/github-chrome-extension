@@ -2,21 +2,8 @@
 
 /**
  * Term keys that are not allowed to be duplicated
- * 
- * @type {const}
  */
-const uniqueTerms = ['draft', 'archived', 'sort']
-
-/**
- * @typedef {Object} QueryTerm
- * @property {string} key
- * @property {string} value
- * @property {boolean} [negative] Optionally set to true to negate the term
- */
-
-/**
- * @typedef {Object} QueryHandlerOptions
- */
+const uniqueTerms = /** @type {const} */ (['draft', 'archived', 'sort'])
 
 class QueryHandler {
   /**
@@ -51,7 +38,7 @@ class QueryHandler {
     const searchForm = /** @type {HTMLFormElement} */ (document.querySelector('form.subnav-search'));
     const searchInput = /** @type {HTMLInputElement} */ (searchForm?.querySelector('input[name="q"]'));
 
-    if (!searchForm || !searchInput) return {};
+    if (!searchForm || !searchInput) return []
 
     const query = new URLSearchParams(window.location.search);
     const q = query.get('q') || '';
@@ -75,7 +62,7 @@ class QueryHandler {
       if (existing) {
         existing.negative = negative;
       } else {
-        terms.push({ key, value, negative });
+        terms.push({ key, value, negative, token });
       }
     }
 
@@ -91,7 +78,7 @@ class QueryHandler {
   }
 
   /**
-   * @param {QueryTerm | string} term
+   * @param {Omit<QueryTerm, 'token'> | string} term
    * @returns {string}
    */
   serialize(term) {

@@ -1,17 +1,6 @@
 // @ts-check
 
 /**
- * @typedef {Record<string, TreeNode>} PRHeads
- */
-
-/**
- * @typedef {Object} TreeNode
- * @property {PullRequest} [pr]
- * @property {TreeNode[]} children
- * @property {PRHeads} [byHead]
- */
-
-/**
  * @param {PullRequest[]} prs
  */
 function buildTree(prs) {
