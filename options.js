@@ -48,6 +48,18 @@ class OptionsHandler {
         if (opt === 'filterNotApprovedByMe' && value) {
             this.set('filterApprovedByMe', false, true);
         }
+
+        // some options are mutually exclusive
+        if (opt === 'filterOnlyMyPRs' && value) {
+            this.set('filterNotMyPRs', false, true);
+        }
+        if (opt === 'filterNotMyPRs' && value) {
+            this.set('filterOnlyMyPRs', false, true);
+        }
+
+        if (opt === 'filterDraftsOut') {
+            this.set('filterDraftsOut', value, true);
+        }
     }
 
     /**
