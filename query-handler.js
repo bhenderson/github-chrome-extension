@@ -6,13 +6,21 @@
 const uniqueTerms = /** @type {const} */ (['draft', 'archived', 'sort'])
 
 class QueryHandler {
+  /** @type {string} */
+  key
   /** @type {QueryTerm[]} */
   terms = []
+  /** @type {string} */
   debounceId = ''
 
-  constructor() {
+  /**
+   * @param {string} key The key of the query to filter by
+   */
+  constructor(key) {
+    this.key = key
+
     const query = new URLSearchParams(window.location.search);
-    const input = query.get('q') || ''
+    const input = query.get(this.key) || ''
 
     /** @type {(QueryTerm)[]} */
     const terms = [];
@@ -95,43 +103,32 @@ class QueryHandler {
     return !!this.terms.find(term => this.serialize(term) === this.serialize(value));
   }
 
-  get search() {
-    const { terms } = this;
-    const qParams = [];
-
-    for (const term of terms) {
-      qParams.push(this.serialize(term));
-    }
-
-    const newQuery = new URLSearchParams(window.location.search);
-    newQuery.set('q', qParams.join(' '));
-
-    return newQuery.toString();
-  }
-
   /**
    * Set the new query as a string (redirects if terms are changing)
    * 
    * @param {string} terms
    */
   setQuery(terms) {
-    this.set(terms.split(' ').map(token => this.toTerm(token)))
+    for (const token of terms.split(' ')) {
+      this.set(this.toTerm(token))
+    }
   }
 
   /**
    * Set the new query (redirects if terms are changing)
    * 
-   * @param {QueryTerm[]} terms
+   * @param {QueryTerm} filter
    */
-  set(terms) {
-    const missingTerms = terms.filter(newTerm => !this.has(newTerm))
-    const missingTermKeys = missingTerms.map(term => term.key)
+  set(filter) {
+    const isMissing = !this.has(filter)
 
-    const newTerms = [...this.terms.filter(oldTerm => !missingTermKeys.includes(oldTerm.key)), ...missingTerms]
+    if (!isMissing) return
 
-    const termsSame = this.compareTerms(this.terms, newTerms);
+    const newTerms = [...this.terms.filter(oldTerm => oldTerm.key !== filter.key), filter]
 
-    if (termsSame) return;
+    const areSame = this.compareTerms(this.terms, newTerms);
+
+    if (areSame) return;
 
     this.setFilters(newTerms)
   }
@@ -151,7 +148,7 @@ class QueryHandler {
       if (this.debounceId !== setId) return
 
       const query = new URLSearchParams();
-      query.set('q', filters.map(filter => this.serialize(filter)).map(token => token.trim()).filter(Boolean).join(' '))
+      query.set(this.key, filters.map(filter => this.serialize(filter)).map(token => token.trim()).filter(Boolean).join(' '))
 
       window.location.search = query.toString()
     }, 500)
@@ -172,18 +169,18 @@ class QueryHandler {
     if (!termExists) return
 
     const newTerms = oldTerms.filter(existingTerm => existingTerm.key !== termToRemove.key)
-    const termsSame = this.compareTerms(oldTerms, newTerms);
+    const areSame = this.compareTerms(oldTerms, newTerms);
 
-    if (termsSame) return;
+    if (areSame) return;
 
     this.setFilters(newTerms)
   }
 
   /**
-   * Compare to see if the terms have changed
+   * Compare to see if the terms have changed. Returns true if both are the same
    * 
-   * @param {Omit<QueryTerm, 'token'>[]} oldTerms 
-   * @param {Omit<QueryTerm, 'token'>[]} newTerms 
+   * @param {QueryTerm[]} oldTerms 
+   * @param {QueryTerm[]} newTerms 
    * @returns {boolean}
    */
   compareTerms(oldTerms, newTerms) {
@@ -204,4 +201,4 @@ function getFormInput() {
   return { searchForm, searchInput };
 }
 
-const queryHandler = new QueryHandler();
+const queryHandler = new QueryHandler('q');

@@ -253,7 +253,7 @@ function setupFilterHandler() {
   }, true);
 
   globalOptions.watch('filterOnlyMyPRs', () => {
-    if (!currentUser) return 
+    if (!currentUser) return
 
     const onlyMyPRsFlag = Boolean(globalOptions.get('filterOnlyMyPRs'))
     const notMyPRsFlag = Boolean(globalOptions.get('filterNotMyPRs'))
@@ -264,12 +264,12 @@ function setupFilterHandler() {
     }
 
     if (onlyMyPRsFlag) {
-      queryHandler.set([{ key: 'author', value: currentUser }])
+      queryHandler.set({ key: 'author', value: currentUser })
     }
   }, true);
 
   globalOptions.watch('filterNotMyPRs', () => {
-    if (!currentUser) return 
+    if (!currentUser) return
 
     const onlyMyPRsFlag = Boolean(globalOptions.get('filterOnlyMyPRs'))
     const notMyPRsFlag = Boolean(globalOptions.get('filterNotMyPRs'))
@@ -280,7 +280,7 @@ function setupFilterHandler() {
     }
 
     if (notMyPRsFlag) {
-      queryHandler.set([{ key: 'author', value: currentUser, negative: true }])
+      queryHandler.set({ key: 'author', value: currentUser, negative: true })
     }
   }, true);
 
@@ -288,7 +288,7 @@ function setupFilterHandler() {
     const filterDraftsOutFlag = Boolean(globalOptions.get('filterDraftsOut'))
 
     if (filterDraftsOutFlag) {
-      queryHandler.set([{ key: 'draft', value: 'false' }])
+      queryHandler.set({ key: 'draft', value: 'false' })
     } else {
       queryHandler.remove({ key: 'draft' })
     }
@@ -298,7 +298,7 @@ function setupFilterHandler() {
     const automaticSortFlag = Boolean(globalOptions.get('automaticSort'))
 
     if (automaticSortFlag) {
-      queryHandler.set([{ key: 'sort', value: 'created-asc' }])
+      queryHandler.set({ key: 'sort', value: 'created-asc' })
     } else {
       queryHandler.remove({ key: 'sort' })
     }
@@ -316,20 +316,23 @@ async function handlePRList() {
   return setupGroupByDependencyHandler();
 }
 
-function prListPage() {
+function getLocationInfo() {
   const pathParts = window.location.pathname.split('/');
 
   const owner = pathParts[1];
   const repo = pathParts[2];
-  const pulls = pathParts[3] === 'pulls';
+  const isPRsList = pathParts[3] === 'pulls'
 
-  return { pulls, owner, repo };
+  return { owner, repo, isPRsList };
 }
 
 async function onLoad() {
-  if (!prListPage().pulls) return;
+  const { isPRsList } = getLocationInfo()
 
+  if (isPRsList) processPRsListPage()
+}
 
+async function processPRsListPage() {
   // Load initial state into query
   if (!queryHandler.tokens.length) {
     const searchForm = /** @type {HTMLFormElement} */ (document.querySelector('form.subnav-search'));

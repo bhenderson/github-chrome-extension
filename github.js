@@ -20,7 +20,7 @@ const PullRequestReviewDecision = /** @type {const} */ ({
  * @returns {Promise<{currentUser: string, pullRequests: PullRequest[]}>}
  */
 async function getPullRequests() {
-  const { owner, repo } = prListPage();
+  const { owner, repo } = getLocationInfo();
   const { token } = globalOptions;
   const query = `query { 
     viewer {
