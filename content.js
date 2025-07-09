@@ -322,14 +322,18 @@ function getLocationInfo() {
   const owner = pathParts[1];
   const repo = pathParts[2];
   const isPRsList = pathParts[3] === 'pulls'
+  const isPRView = pathParts[3] === 'pull'
+  const isPRFilesView = pathParts[3] === 'pull' && pathParts[5] === 'files'
 
-  return { owner, repo, isPRsList };
+  return { owner, repo, isPRsList, isPRView, isPRFilesView };
 }
 
 async function onLoad() {
-  const { isPRsList } = getLocationInfo()
+  const { isPRView, isPRsList, isPRFilesView } = getLocationInfo()
 
   if (isPRsList) processPRsListPage()
+  if (isPRFilesView) processPRFilesView()
+  if (isPRView) processPRView()
 }
 
 async function processPRsListPage() {
@@ -337,7 +341,7 @@ async function processPRsListPage() {
   if (!queryHandler.tokens.length) {
     const searchForm = /** @type {HTMLFormElement} */ (document.querySelector('form.subnav-search'));
     const searchInput = /** @type {HTMLInputElement} */ (searchForm?.querySelector('input[name="q"]'));
-  
+
     queryHandler.setQuery(searchInput.value)
   }
 
@@ -345,6 +349,59 @@ async function processPRsListPage() {
 
   addControlMenu();
 }
+
+function findAnchorByText(searchText) {
+  // Get all anchor elements in the document
+  const anchors = document.getElementsByTagName('a');
+
+
+  for (const anchor of anchors) {
+    // Return the anchor that contains the text
+    if (anchor.textContent.includes(searchText)) {
+      return anchor
+    }
+  }
+
+  // Return null if no matching anchor is found
+  return null;
+}
+
+function processPRView() {
+  if (!globalOptions.get('hideWhitespace')) return
+
+  const targetAnchor = findAnchorByText('Files changed');
+
+  if (targetAnchor) {
+    targetAnchor.href = `${targetAnchor.href}?w=1`
+  }
+}
+
+function processPRFilesView() {
+  /** @ts-expect-error @type {HTMLInputElement} */
+  const hideWhitespaceCheckbox = document.getElementById('whitespace-cb-lg')
+
+  if (hideWhitespaceCheckbox) {
+    hideWhitespaceCheckbox.addEventListener('change', handleHideWhitespaceChange)
+  }
+
+  if (!globalOptions.get('hideWhitespace')) return
+  
+  const prFilesViewQueryHandler = new QueryHandler('w');
+
+  if (!prFilesViewQueryHandler.has({ key: '1', value: undefined })) {
+    prFilesViewQueryHandler.set({ key: '1', value: undefined })
+  }
+}
+
+
+function handleHideWhitespaceChange() {
+  /** @ts-expect-error @type {HTMLInputElement} */
+  const hideWhitespaceCheckbox = document.getElementById('whitespace-cb-lg')
+  const hideWhitespaceFlag = hideWhitespaceCheckbox.checked
+
+  globalOptions.set('hideWhitespace', hideWhitespaceFlag)
+}
+
 
 window.addEventListener('load', onLoad);
 
