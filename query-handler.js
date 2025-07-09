@@ -12,12 +12,14 @@ class QueryHandler {
 
   constructor() {
     const query = new URLSearchParams(window.location.search);
-    const input = query.get('q')
+    const input = query.get('q') || ''
 
     /** @type {(QueryTerm)[]} */
     const terms = [];
 
-    for (const token of input.split(' ')) {
+    const tokens = input.split(' ').filter(Boolean)
+
+    for (const token of tokens) {
       const { key, value, negative } = this.toTerm(token)
       // const existing = terms.find(t => t.key === key && (t.value === value || uniqueTerms.includes(t.key)));
       // ignore negative when checking for existing terms
@@ -149,7 +151,7 @@ class QueryHandler {
       if (this.debounceId !== setId) return
 
       const query = new URLSearchParams();
-      query.set('q', filters.map(filter => this.serialize(filter)).join(' '))
+      query.set('q', filters.map(filter => this.serialize(filter)).map(token => token.trim()).filter(Boolean).join(' '))
 
       window.location.search = query.toString()
     }, 500)

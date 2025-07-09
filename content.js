@@ -329,6 +329,15 @@ function prListPage() {
 async function onLoad() {
   if (!prListPage().pulls) return;
 
+
+  // Load initial state into query
+  if (!queryHandler.tokens.length) {
+    const searchForm = /** @type {HTMLFormElement} */ (document.querySelector('form.subnav-search'));
+    const searchInput = /** @type {HTMLInputElement} */ (searchForm?.querySelector('input[name="q"]'));
+  
+    queryHandler.setQuery(searchInput.value)
+  }
+
   await handlePRList();
 
   addControlMenu();
