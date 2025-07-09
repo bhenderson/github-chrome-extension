@@ -14,10 +14,9 @@ function partition(array, predicate) {
 
 /**
  * @param {Review[]} reviews
- * @param {string} currentUser
  * @returns {HTMLElement | null}
  */
-function createReviewElements(reviews, currentUser) {
+function createReviewElements(reviews) {
   if (!reviews.length) return null;
 
   const span = document.createElement('span');
@@ -48,10 +47,9 @@ function createReviewElements(reviews, currentUser) {
  * ```
  * 
  * @param {PullRequest} pr
- * @param {string} currentUser
  * @param {HTMLElement} node
  */
-function showReviewers(pr, currentUser, node) {
+function showReviewers(pr, node) {
   const reviews = pr.reviews.filter(review => review.state === PullRequestReviewState.APPROVED || review.state === PullRequestReviewState.CHANGES_REQUESTED);
   if (reviews.length === 0) return;
 
@@ -62,7 +60,7 @@ function showReviewers(pr, currentUser, node) {
 
   switch (pr.reviewDecision) {
     case PullRequestReviewDecision.CHANGES_REQUESTED: {
-      const reviewElements = createReviewElements(changesRequestedReviews, currentUser);
+      const reviewElements = createReviewElements(changesRequestedReviews);
       if (reviewElements) {
         node.append(reviewElements)
       }
@@ -75,7 +73,7 @@ function showReviewers(pr, currentUser, node) {
       // fall through
     }
     case PullRequestReviewDecision.APPROVED: {
-      const reviewElements = createReviewElements(approvedReviews, currentUser);
+      const reviewElements = createReviewElements(approvedReviews);
       if (reviewElements) {
         node.append(reviewElements)
       }
@@ -91,15 +89,17 @@ function showReviewers(pr, currentUser, node) {
 function setupPersistSearchHandler() {
   // When the option changes, if we're setting it to true and sort is not applied, apply the default.
   globalOptions.watch('persistentSearch', value => {
+    if (!value) return
 
     const persistentSearch = String(value)
+
     const persistentSearchTerms = persistentSearch.split(' ').map(term => term.trim())
-    const existingQueryTerms = queryHandler.terms.map(term => term.token)
+    const existingQueryTerms = queryHandler.tokens
 
     const missingQueryTerms = persistentSearchTerms.filter(term => !existingQueryTerms.includes(term))
 
     if (missingQueryTerms.length) {
-      queryHandler.set(missingQueryTerms.join(' '));
+      queryHandler.setQuery(missingQueryTerms.join(' '));
     }
 
   }, true)
@@ -133,12 +133,17 @@ function setPRDefaultSort() {
   }
 }
 
+/** @type {string} */
+let currentUser
+
 /** Set sort but also extend the view with approvers, etc. */
 async function setDependencySort() {
   const { container, prElements } = getPRElements();
   if (!container || !prElements) return;
 
-  const { currentUser, pullRequests } = await getPullRequests();
+  const { currentUser: user, pullRequests } = await getPullRequests();
+
+  currentUser = user
 
   /** @type {Record<string, HTMLElement>} Maps PR number to their DOM element */
   const elementByPRNumber = {};
@@ -184,7 +189,7 @@ async function setDependencySort() {
 
         statusSpan.prepend(depthLabel, ' ');
       }
-      showReviewers(pr, currentUser, statusSpan);
+      showReviewers(pr, statusSpan);
     }
     for (const child of children) {
       traverseTree(child, depth + 1);
@@ -246,6 +251,58 @@ function setupFilterHandler() {
   globalOptions.watch('filterNotApprovedByMe', () => {
     sortByKey();
   }, true);
+
+  globalOptions.watch('filterOnlyMyPRs', () => {
+    if (!currentUser) return 
+
+    const onlyMyPRsFlag = Boolean(globalOptions.get('filterOnlyMyPRs'))
+    const notMyPRsFlag = Boolean(globalOptions.get('filterNotMyPRs'))
+
+    if (!onlyMyPRsFlag && !notMyPRsFlag) {
+      queryHandler.remove({ key: 'author' })
+      return
+    }
+
+    if (onlyMyPRsFlag) {
+      queryHandler.set([{ key: 'author', value: currentUser }])
+    }
+  }, true);
+
+  globalOptions.watch('filterNotMyPRs', () => {
+    if (!currentUser) return 
+
+    const onlyMyPRsFlag = Boolean(globalOptions.get('filterOnlyMyPRs'))
+    const notMyPRsFlag = Boolean(globalOptions.get('filterNotMyPRs'))
+
+    if (!onlyMyPRsFlag && !notMyPRsFlag) {
+      queryHandler.remove({ key: 'author' })
+      return
+    }
+
+    if (notMyPRsFlag) {
+      queryHandler.set([{ key: 'author', value: currentUser, negative: true }])
+    }
+  }, true);
+
+  globalOptions.watch('filterDraftsOut', () => {
+    const filterDraftsOutFlag = Boolean(globalOptions.get('filterDraftsOut'))
+
+    if (filterDraftsOutFlag) {
+      queryHandler.set([{ key: 'draft', value: 'false' }])
+    } else {
+      queryHandler.remove({ key: 'draft' })
+    }
+  }, true);
+
+  globalOptions.watch('automaticSort', () => {
+    const automaticSortFlag = Boolean(globalOptions.get('automaticSort'))
+
+    if (automaticSortFlag) {
+      queryHandler.set([{ key: 'sort', value: 'created-asc' }])
+    } else {
+      queryHandler.remove({ key: 'sort' })
+    }
+  }, true);
 }
 
 async function handlePRList() {
@@ -254,8 +311,9 @@ async function handlePRList() {
   if (!token) return;
 
   setupPersistSearchHandler();
-  setupGroupByDependencyHandler();
   setupFilterHandler();
+
+  return setupGroupByDependencyHandler();
 }
 
 function prListPage() {
@@ -268,19 +326,18 @@ function prListPage() {
   return { pulls, owner, repo };
 }
 
-function onLoad() {
+async function onLoad() {
   if (!prListPage().pulls) return;
 
-  addControlMenu();
+  await handlePRList();
 
-  handlePRList();
+  addControlMenu();
 }
 
 window.addEventListener('load', onLoad);
 
 // Listen for Turbo navigation events
 document.addEventListener('turbo:render', () => {
-  console.log('turbo:render');
   setTimeout(() => {
     onLoad()
   }, 500);

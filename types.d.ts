@@ -74,8 +74,11 @@ interface GraphQLError {
 
 type Options =
   | 'groupByDependency'
+  | 'filterDraftsOut'
+  | 'automaticSort'
   | 'filterApprovedByMe'
   | 'filterNotApprovedByMe'
+  | 'filterOnlyMyPRs'|'filterNotMyPRs'
   | 'githubToken'
   | 'persistentSearch';
 
@@ -84,9 +87,6 @@ type Callback = (value: boolean | string) => unknown;
 interface QueryTerm {
   key: string;
   value: string;
-  token: string // The raw string value
-  negative?: boolean; // Optionally set to true to negate the term
-}
-
-interface QueryHandlerOptions {
+  /** Set to true to negate the term */
+  negative?: boolean;
 }
