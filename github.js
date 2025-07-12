@@ -8,14 +8,6 @@ const PullRequestReviewState = /** @type {const} */ ({
   PENDING: 'PENDING'
 });
 
-/** @typedef {typeof PullRequestReviewState[keyof typeof PullRequestReviewState]} PullRequestReviewState */
-
-/**
- * @typedef {Object} Review
- * @property {string} author
- * @property {PullRequestReviewState} state
- * @property {string} html_url
- */
 
 const PullRequestReviewDecision = /** @type {const} */ ({
   APPROVED: 'APPROVED',
@@ -24,54 +16,11 @@ const PullRequestReviewDecision = /** @type {const} */ ({
   NONE: null
 });
 
-/** @typedef {typeof PullRequestReviewDecision[keyof typeof PullRequestReviewDecision]} PullRequestReviewDecision */
-
-/**
- * @typedef {Object} PullRequest
- * @property {number} number
- * @property {string} title
- * @property {string} url
- * @property {string} baseRefName
- * @property {string} headRefName
- * @property {string} author
- * @property {Review[]} reviews
- * @property {PullRequestReviewDecision} reviewDecision
- */
-
-/**
- * @typedef {Object} GraphQLResponse
- * @property {Object} data
- * @property {Object} data.viewer
- * @property {string} data.viewer.login
- * @property {Object} data.repository
- * @property {Object} data.repository.pullRequests
- * @property {Array<{
- *   number: number,
- *   title: string,
- *   url: string,
- *   author: {
- *     login: string
- *   },
- *   baseRefName: string,
- *   headRefName: string,
- *   latestReviews: {
- *     nodes: Array<{
- *       author: {
- *         login: string,
- *         url: string
- *       },
- *       state: PullRequestReviewState
- *     }>
- *   },
- *   reviewDecision: PullRequestReviewDecision
- * }>} data.repository.pullRequests.nodes
- */
-
 /**
  * @returns {Promise<{currentUser: string, pullRequests: PullRequest[]}>}
  */
 async function getPullRequests() {
-  const { owner, repo } = prListPage();
+  const { owner, repo } = getLocationInfo();
   const { token } = globalOptions;
   const query = `query { 
     viewer {
@@ -103,21 +52,41 @@ async function getPullRequests() {
     } 
   }`;
 
+
+  if (!token) {
+    console.info(`Github Chrome Extension: Token was not provided. Exiting...`)
+
+    return
+  }
+
   const response = await fetch('https://api.github.com/graphql', {
     method: 'POST',
     headers: {
-      'Authorization': `bearer ${token}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ query }),
   });
 
-  /** @type {GraphQLResponse} */
+  /** @type {GraphQLResponse | GraphQLError} */
   const data = await response.json();
 
+  if ('status' in data && data.status !== '200') {
+    if (data.status === '401') {
+      console.error(`Github Chrome Extension Error: Authorization Error. Is your Github token valid? (Check "github-chrome-extension.githubToken" in localstorage)`)
+    } else {
+      throw new Error(`Github Chrome Extension Error: ${data.message}`)
+    }
+    
+    throw new Error(JSON.stringify(data))
+  } 
+
+  /** @ts-expect-error @type {GraphQLResponse} - Type guard does not work well here... Should be a success type */
+  const responseData = data
+  
   return {
-    currentUser: data.data.viewer.login,
-    pullRequests: data.data.repository.pullRequests.nodes.map(pr => /** @type {PullRequest} */({
+    currentUser: responseData.data.viewer.login,
+    pullRequests: responseData.data.repository.pullRequests.nodes.map(pr => /** @type {PullRequest} */({
       number: pr.number,
       title: pr.title,
       url: pr.url,

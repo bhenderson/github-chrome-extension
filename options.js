@@ -1,16 +1,3 @@
-/** 
- * @typedef { 
- *   | 'groupByDependency'
- *   | 'filterApprovedByMe'
- *   | 'filterNotApprovedByMe'
- *   | 'githubToken'
- *   | 'persistentSearch'
- * } Options 
- */
-/**
- * @typedef {{(value: boolean): unknown}} Callback
- */
-
 class EventEmitter extends EventTarget {
     on(event, callback) {
         this.addEventListener(event, callback);
@@ -60,6 +47,18 @@ class OptionsHandler {
         }
         if (opt === 'filterNotApprovedByMe' && value) {
             this.set('filterApprovedByMe', false, true);
+        }
+
+        // some options are mutually exclusive
+        if (opt === 'filterOnlyMyPRs' && value) {
+            this.set('filterNotMyPRs', false, true);
+        }
+        if (opt === 'filterNotMyPRs' && value) {
+            this.set('filterOnlyMyPRs', false, true);
+        }
+
+        if (opt === 'filterDraftsOut') {
+            this.set('filterDraftsOut', value, true);
         }
     }
 
