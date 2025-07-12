@@ -1,4 +1,4 @@
-/** @ts-check */
+// @ts-check 
 
 /**
  * Term keys that are not allowed to be duplicated
@@ -6,55 +6,29 @@
 const uniqueTerms = /** @type {const} */ (['draft', 'archived', 'sort'])
 
 class QueryHandler {
-  /**
-   * @param {QueryHandlerOptions} opts
-   */
-  static input(opts = {}) {
-    return new QueryHandler(opts).input;
-  }
+  /** @type {string} */
+  key
+  /** @type {QueryTerm[]} */
+  terms = []
+  /** @type {string} */
+  debounceId = ''
 
   /**
-   * @param {string} [input]
+   * @param {string} key The key of the query to filter by
    */
-  static set(input) {
-    const qh = new QueryHandler()
-    
-    qh.set(input);
-  }
-
-  /**
-   * @param {QueryHandlerOptions} opts
-   */
-  constructor(opts = {}) {
-  }
-
-  extraInput = '';
-
-  get input() {
-    return this.terms.map(this.serialize).join(' ');
-  }
-
-  get query() {
-    const searchForm = /** @type {HTMLFormElement} */ (document.querySelector('form.subnav-search'));
-    const searchInput = /** @type {HTMLInputElement} */ (searchForm?.querySelector('input[name="q"]'));
-
-    if (!searchForm || !searchInput) return []
+  constructor(key) {
+    this.key = key
 
     const query = new URLSearchParams(window.location.search);
-    const q = query.get('q') || '';
-    const input = [searchInput.value, q, this.extraInput]
+    const input = query.get(this.key) || ''
 
-    return input.join(' ').split(' ').filter(Boolean);
-  }
-
-  get terms() {
     /** @type {(QueryTerm)[]} */
     const terms = [];
 
-    for (const token of this.query) {
-      // allow strings that don't match and store them as the key with an undefined value
-      const [, dash, key = token, value] = /^(-)?([^:]+):(.+)$/.exec(token) || [];
-      const negative = !!dash;
+    const tokens = input.split(' ').filter(Boolean)
+
+    for (const token of tokens) {
+      const { key, value, negative } = this.toTerm(token)
       // const existing = terms.find(t => t.key === key && (t.value === value || uniqueTerms.includes(t.key)));
       // ignore negative when checking for existing terms
       const existing = terms.find(t => this.serialize(t) === this.serialize({ key, value }));
@@ -62,11 +36,37 @@ class QueryHandler {
       if (existing) {
         existing.negative = negative;
       } else {
-        terms.push({ key, value, negative, token });
+        terms.push({ key, value, negative });
       }
     }
 
-    return terms;
+    this.terms = terms
+  }
+
+  /**
+   * @returns {string}
+   */
+  get input() {
+    return this.terms.map(this.serialize).join(' ');
+  }
+
+  /**
+   * @returns {string[]}
+   */
+  get tokens() {
+    return this.terms.map(this.serialize)
+  }
+
+  /**
+   * @param {string} token
+   * @returns {QueryTerm}
+   */
+  toTerm(token) {
+    // allow strings that don't match and store them as the key with an undefined value
+    const [, dash, key = token, value] = /^(-)?([^:]+):(.+)$/.exec(token) || [];
+    const negative = !!dash;
+
+    return { key, value, negative }
   }
 
   /**
@@ -96,52 +96,88 @@ class QueryHandler {
 
   /**
    * 
-   * @param {QueryTerm | string} value 
+   * @param {Omit<QueryTerm, 'token'> | string} value 
    * @returns 
    */
   has(value) {
     return !!this.terms.find(term => this.serialize(term) === this.serialize(value));
   }
 
-  get search() {
-    const { terms } = this;
-    const qParams = [];
-
-    for (const term of terms) {
-      qParams.push(this.serialize(term));
+  /**
+   * Set the new query as a string (redirects if terms are changing)
+   * 
+   * @param {string} terms
+   */
+  setQuery(terms) {
+    for (const token of terms.split(' ')) {
+      this.set(this.toTerm(token))
     }
-
-    const newQuery = new URLSearchParams(window.location.search);
-    newQuery.set('q', qParams.join(' '));
-
-    return newQuery.toString();
   }
 
   /**
    * Set the new query (redirects if terms are changing)
    * 
-   * @param {QueryTerm[] | string} [newTerms]
+   * @param {QueryTerm} filter
    */
-  set(newTerms = []) {
-    const oldTerms = this.terms;
+  set(filter) {
+    const isMissing = !this.has(filter)
 
-    if (newTerms) {
-      this.extraInput = typeof newTerms === 'string' ? newTerms : newTerms.map(this.serialize).join(' ');
-    }
+    if (!isMissing) return
 
-    const { terms, search } = this;
-    // reset
-    this.extraInput = '';
+    const newTerms = [...this.terms.filter(oldTerm => oldTerm.key !== filter.key), filter]
 
-    const termsSame = this.compareTerms(oldTerms, terms);
+    const areSame = this.compareTerms(this.terms, newTerms);
 
-    if (termsSame) return;
+    if (areSame) return;
 
-    window.location.search = search;
+    this.setFilters(newTerms)
   }
 
   /**
-   * Compare to see if the terms have changed
+   * Set the new query search, but debounce the call to prevent infinite reload loop
+   * 
+   * @param {QueryTerm[]} filters
+   */
+  setFilters(filters) {
+    this.terms = filters
+
+    const setId = String(Math.floor(Math.random() * 10000))
+    this.debounceId = setId
+
+    setTimeout(() => {
+      if (this.debounceId !== setId) return
+
+      const query = new URLSearchParams();
+      query.set(this.key, filters.map(filter => this.serialize(filter)).map(token => token.trim()).filter(Boolean).join(' '))
+
+      window.location.search = query.toString()
+    }, 500)
+  }
+
+  /**
+   * Remove a query query (redirects if terms are changing)
+   * 
+   * @param {Pick<QueryTerm, 'key'>} [termToRemove]
+   */
+  remove(termToRemove) {
+    const oldTerms = this.terms;
+
+    if (!termToRemove) return
+
+    const termExists = oldTerms.find(existingTerm => existingTerm.key === termToRemove.key)
+
+    if (!termExists) return
+
+    const newTerms = oldTerms.filter(existingTerm => existingTerm.key !== termToRemove.key)
+    const areSame = this.compareTerms(oldTerms, newTerms);
+
+    if (areSame) return;
+
+    this.setFilters(newTerms)
+  }
+
+  /**
+   * Compare to see if the terms have changed. Returns true if both are the same
    * 
    * @param {QueryTerm[]} oldTerms 
    * @param {QueryTerm[]} newTerms 
@@ -165,4 +201,4 @@ function getFormInput() {
   return { searchForm, searchInput };
 }
 
-const queryHandler = new QueryHandler();
+const queryHandler = new QueryHandler('q');

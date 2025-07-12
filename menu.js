@@ -58,7 +58,6 @@ function createSearchInput(placeholder) {
     inputField.value = globalOptions.get('persistentSearch') || '';
 
     inputField.onblur = () => {
-      console.log('setting persistent search', inputField.value);
       globalOptions.set('persistentSearch', inputField.value);
     }
 
@@ -95,8 +94,12 @@ function addControlMenu() {
 
     list.append(
         createMenuButton('Group By Dependency', 'groupByDependency'),
+        createMenuButton('Filter Drafts Out', 'filterDraftsOut'),
+        createMenuButton('Automatic Sort', 'automaticSort'),
         createMenuButton('Filter Approved By Me', 'filterApprovedByMe'),
         createMenuButton('Filter Not Approved By Me', 'filterNotApprovedByMe'),
+        createMenuButton('Only My PRs', 'filterOnlyMyPRs'),
+        createMenuButton('Not My PRs', 'filterNotMyPRs'),
         createSearchInput('Persistent search field'),
     );
 
