@@ -78,7 +78,9 @@ type Options =
   | 'automaticSort'
   | 'filterApprovedByMe'
   | 'filterNotApprovedByMe'
-  | 'filterOnlyMyPRs'|'filterNotMyPRs'
+  | 'filterOnlyMyPRs'
+  | 'filterNotMyPRs'
+  | 'hideWhitespace'
   | 'githubToken'
   | 'persistentSearch';
 
