@@ -303,6 +303,11 @@ function setupFilterHandler() {
       queryHandler.remove({ key: 'sort' })
     }
   }, true);
+
+  globalOptions.watch('githubToken', () => {
+    // trigger token prompt if empty
+    globalOptions.token
+  }, true);
 }
 
 async function handlePRList() {
@@ -385,7 +390,7 @@ function processPRFilesView() {
   }
 
   if (!globalOptions.get('hideWhitespace')) return
-  
+
   const prFilesViewQueryHandler = new QueryHandler('w');
 
   if (!prFilesViewQueryHandler.has({ key: '1', value: undefined })) {

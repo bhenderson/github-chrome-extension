@@ -100,6 +100,7 @@ function addControlMenu() {
     createMenuButton('Filter Not Approved By Me', 'filterNotApprovedByMe'),
     createMenuButton('Only My PRs', 'filterOnlyMyPRs'),
     createMenuButton('Not My PRs', 'filterNotMyPRs'),
+    createMenuButton('Reset Github Token', 'githubToken'),
     createSearchInput('Persistent search field'),
   );
 
