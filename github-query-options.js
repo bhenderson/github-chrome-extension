@@ -163,14 +163,36 @@ const GitHubListPathKind = Object.freeze({
 });
 
 /**
+ * Repo pulls list: `/owner/repo/pulls` or `/owner/repo/pulls/author-login` (GitHub’s “PRs by user” URL).
+ * @type {RegExp}
+ */
+const REPO_PULLS_LIST_PATH =
+  /^\/[^/]+\/[^/]+\/pulls(?:\/([^/]+))?\/?$/;
+
+/**
  * @param {string} pathname
  * @returns {GitHubListPathKind | null}
  */
 function getListPathKind(pathname) {
-  if (/^\/[^/]+\/[^/]+\/pulls\/?$/.test(pathname)) {
+  if (REPO_PULLS_LIST_PATH.test(pathname)) {
     return GitHubListPathKind.PULLS;
   }
   return null;
+}
+
+/**
+ * Login segment from `/owner/repo/pulls/<login>` when present.
+ * @param {string} pathname
+ * @returns {string | null}
+ */
+function getPullsListPathAuthorLogin(pathname) {
+  const m = pathname.match(REPO_PULLS_LIST_PATH);
+  if (!m || !m[1]) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return m[1];
+  }
 }
 
 /**
@@ -203,6 +225,7 @@ Object.assign(globalThis, {
     GitHubListPathKind,
     SORT_OLDEST_PULLS_DEFAULT_OPTIONS,
     getListPathKind,
+    getPullsListPathAuthorLogin,
     getSortOldestDefaultsForPathname,
     serializeQueryOptions,
     deserializeQueryString,

@@ -28,6 +28,7 @@ export interface GithubExtensionGlobal {
   GitHubListPathKind: { readonly PULLS: 'pulls' };
   SORT_OLDEST_PULLS_DEFAULT_OPTIONS: ReadonlyArray<GitHubQueryOption>;
   getListPathKind: (pathname: string) => 'pulls' | null;
+  getPullsListPathAuthorLogin: (pathname: string) => string | null;
   getSortOldestDefaultsForPathname: (
     pathname: string,
   ) => ReadonlyArray<GitHubQueryOption> | null;

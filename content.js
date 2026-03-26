@@ -215,6 +215,13 @@ function applyUrlForSettings(settings, options = {}) {
     q = removeQueryOptionsWithKey(q, 'author');
   }
 
+  const pathAuthorLogin = ext.getPullsListPathAuthorLogin(url.pathname);
+  if (pathAuthorLogin && !settings.filterOnlyMyPRs) {
+    q = ext.mergeQueryOptions(q, [
+      { negate: false, key: 'author', value: pathAuthorLogin },
+    ]);
+  }
+
   const next = ext.serializeQueryOptions(q).trim();
   if (next === '') {
     url.searchParams.delete('q');
