@@ -10,6 +10,21 @@ const sortCheckbox = /** @type {HTMLInputElement} */ (
 const groupByDependencyCheckbox = /** @type {HTMLInputElement} */ (
   document.getElementById('group-by-dependency')
 );
+const filterDraftsOutCheckbox = /** @type {HTMLInputElement} */ (
+  document.getElementById('filter-drafts-out')
+);
+const filterApprovedByMeCheckbox = /** @type {HTMLInputElement} */ (
+  document.getElementById('filter-approved-by-me')
+);
+const filterNotApprovedByMeCheckbox = /** @type {HTMLInputElement} */ (
+  document.getElementById('filter-not-approved-by-me')
+);
+const filterOnlyMyPRsCheckbox = /** @type {HTMLInputElement} */ (
+  document.getElementById('filter-only-my-prs')
+);
+const filterNotMyPRsCheckbox = /** @type {HTMLInputElement} */ (
+  document.getElementById('filter-not-my-prs')
+);
 const tokenBtn = /** @type {HTMLButtonElement} */ (
   document.getElementById('set-token')
 );
@@ -17,7 +32,17 @@ const tokenHint = /** @type {HTMLParagraphElement} */ (
   document.getElementById('token-hint')
 );
 
-if (!sortCheckbox || !groupByDependencyCheckbox || !tokenBtn || !tokenHint) {
+if (
+  !sortCheckbox ||
+  !groupByDependencyCheckbox ||
+  !filterDraftsOutCheckbox ||
+  !filterApprovedByMeCheckbox ||
+  !filterNotApprovedByMeCheckbox ||
+  !filterOnlyMyPRsCheckbox ||
+  !filterNotMyPRsCheckbox ||
+  !tokenBtn ||
+  !tokenHint
+) {
   throw new Error('popup DOM missing required elements');
 }
 
@@ -38,6 +63,11 @@ function loadUi() {
   void loadSettings().then((s) => {
     sortCheckbox.checked = s.sortOldest;
     groupByDependencyCheckbox.checked = s.groupByDependency;
+    filterDraftsOutCheckbox.checked = s.filterDraftsOut;
+    filterApprovedByMeCheckbox.checked = s.filterApprovedByMe;
+    filterNotApprovedByMeCheckbox.checked = s.filterNotApprovedByMe;
+    filterOnlyMyPRsCheckbox.checked = s.filterOnlyMyPRs;
+    filterNotMyPRsCheckbox.checked = s.filterNotMyPRs;
     refreshTokenHint(s);
   });
 }
@@ -50,6 +80,32 @@ groupByDependencyCheckbox.addEventListener('change', () => {
   void saveSettingsPatch({
     groupByDependency: groupByDependencyCheckbox.checked,
   });
+});
+
+filterDraftsOutCheckbox.addEventListener('change', () => {
+  void saveSettingsPatch({ filterDraftsOut: filterDraftsOutCheckbox.checked });
+});
+
+filterApprovedByMeCheckbox.addEventListener('change', () => {
+  void saveSettingsPatch({
+    filterApprovedByMe: filterApprovedByMeCheckbox.checked,
+  });
+});
+
+filterNotApprovedByMeCheckbox.addEventListener('change', () => {
+  void saveSettingsPatch({
+    filterNotApprovedByMe: filterNotApprovedByMeCheckbox.checked,
+  });
+});
+
+filterOnlyMyPRsCheckbox.addEventListener('change', () => {
+  void saveSettingsPatch({
+    filterOnlyMyPRs: filterOnlyMyPRsCheckbox.checked,
+  });
+});
+
+filterNotMyPRsCheckbox.addEventListener('change', () => {
+  void saveSettingsPatch({ filterNotMyPRs: filterNotMyPRsCheckbox.checked });
 });
 
 tokenBtn.addEventListener('click', () => {

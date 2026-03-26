@@ -1,6 +1,6 @@
 /**
- * @fileoverview Runs on github.com: merges GitHub `q` search options when Sort Oldest is enabled;
- * optional dependency-based reorder of the pulls list when Group by dependency is enabled.
+ * @fileoverview Runs on github.com: merges GitHub `q` search options (sort oldest, drafts, author);
+ * optional dependency reorder and approval-based row filtering on the pulls list (token + GraphQL when needed).
  */
 
 /// <reference path="./types/github-extension-global.d.ts" />
@@ -18,6 +18,8 @@ const ext = _ext;
 
 const defaultSortKey = '__gce_defaultSort';
 const dependencySortKey = '__gce_dependencySort';
+/** Set from GraphQL reviews when approval filters or dependency mode needs them. */
+const approvedByYouKey = '__gce_approvedByYou';
 
 /** Marks extension-injected review UI for cleanup before re-render. */
 const REVIEW_UI_ATTR = 'data-gce-review';
@@ -148,58 +150,22 @@ function isPullsListPath(pathname) {
 }
 
 /**
- * @param {URL} url
- * @returns {boolean} True if `q` already includes the full Sort Oldest default bundle for this path.
+ * Logged-in user from GitHub’s page (`meta[name="user-login"]`).
+ * @returns {string}
  */
-function hasSortOldestQueryBundle(url) {
-  const defaults = ext.getSortOldestDefaultsForPathname(url.pathname);
-  if (!defaults) return false;
-  const q = url.searchParams.get('q') ?? '';
-  const current = ext.deserializeQueryString(q);
-  return ext.queryOptionsContainAll(current, [...defaults]);
+function getViewerLoginFromDom() {
+  const meta = document.querySelector('meta[name="user-login"]');
+  const c = meta?.getAttribute('content');
+  return typeof c === 'string' && c.length > 0 ? c : '';
 }
 
 /**
- * Merges pulls-list defaults (`is:pr is:open sort:created-asc`) into `q`.
- * @param {URL} url
- * @returns {boolean} True if `url` was modified.
+ * @param {import('./types/github-extension-global').GitHubQueryOption[]} options
+ * @param {string} key
+ * @returns {import('./types/github-extension-global').GitHubQueryOption[]}
  */
-function applySortOldestQuery(url) {
-  const defaults = ext.getSortOldestDefaultsForPathname(url.pathname);
-  if (!defaults) return false;
-  if (hasSortOldestQueryBundle(url)) return false;
-
-  const beforeHref = url.href;
-  const q = url.searchParams.get('q') ?? '';
-  const current = ext.deserializeQueryString(q);
-  const merged = ext.mergeQueryOptions(current, [...defaults]);
-  const next = ext.serializeQueryOptions(merged).trim();
-  url.searchParams.set('q', next);
-  return url.href !== beforeHref;
-}
-
-/**
- * Removes the Sort Oldest default option set for this path from `q`.
- * @param {URL} url
- * @returns {boolean} True if `url` was modified.
- */
-function stripSortOldestQuery(url) {
-  const defaults = ext.getSortOldestDefaultsForPathname(url.pathname);
-  if (!defaults) return false;
-
-  const beforeHref = url.href;
-  const q = url.searchParams.get('q') ?? '';
-  const current = ext.deserializeQueryString(q);
-  const nextOpts = ext.subtractQueryOptions(current, [...defaults]);
-  const next = ext.serializeQueryOptions(nextOpts).trim();
-
-  if (next === '') {
-    url.searchParams.delete('q');
-  } else {
-    url.searchParams.set('q', next);
-  }
-
-  return url.href !== beforeHref;
+function removeQueryOptionsWithKey(options, key) {
+  return options.filter((o) => o.key !== key);
 }
 
 /**
@@ -208,6 +174,7 @@ function stripSortOldestQuery(url) {
  */
 
 /**
+ * Aligns the pulls-list `q` parameter with extension settings (sort, draft, author filters).
  * @param {import('./types/github-extension-global').ExtensionSettings} settings
  * @param {ApplyUrlOptions} [options]
  * @returns {void}
@@ -217,16 +184,45 @@ function applyUrlForSettings(settings, options = {}) {
   const url = new URL(location.href);
   if (!isPullsListPath(url.pathname)) return;
 
-  if (settings.sortOldest) {
-    if (applySortOldestQuery(url) && url.href !== location.href) {
-      location.replace(url.href);
+  const defaults = ext.getSortOldestDefaultsForPathname(url.pathname);
+  let q = ext.deserializeQueryString(url.searchParams.get('q') ?? '');
+
+  if (defaults) {
+    if (settings.sortOldest) {
+      if (!ext.queryOptionsContainAll(q, [...defaults])) {
+        q = ext.mergeQueryOptions(q, [...defaults]);
+      }
+    } else if (fromStorageEvent) {
+      q = ext.subtractQueryOptions(q, [...defaults]);
     }
-    return;
   }
 
-  if (!fromStorageEvent) return;
+  if (settings.filterDraftsOut) {
+    q = removeQueryOptionsWithKey(q, 'draft');
+    q = ext.mergeQueryOptions(q, [{ negate: false, key: 'draft', value: 'false' }]);
+  } else if (fromStorageEvent) {
+    q = removeQueryOptionsWithKey(q, 'draft');
+  }
 
-  if (stripSortOldestQuery(url) && url.href !== location.href) {
+  const login = getViewerLoginFromDom();
+  if (login && settings.filterOnlyMyPRs) {
+    q = removeQueryOptionsWithKey(q, 'author');
+    q = ext.mergeQueryOptions(q, [{ negate: false, key: 'author', value: login }]);
+  } else if (login && settings.filterNotMyPRs) {
+    q = removeQueryOptionsWithKey(q, 'author');
+    q = ext.mergeQueryOptions(q, [{ negate: true, key: 'author', value: login }]);
+  } else if (fromStorageEvent) {
+    q = removeQueryOptionsWithKey(q, 'author');
+  }
+
+  const next = ext.serializeQueryOptions(q).trim();
+  if (next === '') {
+    url.searchParams.delete('q');
+  } else {
+    url.searchParams.set('q', next);
+  }
+
+  if (url.href !== location.href) {
     location.replace(url.href);
   }
 }
@@ -261,8 +257,16 @@ function setPRDefaultSort() {
 
 /**
  * @param {import('./types/github-extension-global').ExtensionSettings} settings
+ * @param {string} viewerLogin
+ * @param {Array<{
+ *   number: number;
+ *   headRefName: string;
+ *   baseRefName: string;
+ *   reviews: Array<{ author: string; state: string; html_url: string }>;
+ *   reviewDecision?: string | null;
+ * }>} pullRequests
  */
-async function setDependencySort(settings) {
+async function setDependencySort(settings, viewerLogin, pullRequests) {
   const { container, prElements } = getPRElements();
   if (!container || !prElements?.length) return;
 
@@ -271,11 +275,6 @@ async function setDependencySort(settings) {
   const repo = pathParts[2];
   if (!owner || !repo) return;
 
-  const { viewerLogin, pullRequests } = await fetchOpenPullRequestsForRepo(
-    owner,
-    repo,
-    settings.token ?? '',
-  );
   currentUser = viewerLogin;
 
   const elementByPRNumber = /** @type {Record<string, HTMLElement>} */ ({});
@@ -377,6 +376,32 @@ async function setDependencySort(settings) {
 }
 
 /**
+ * @param {HTMLElement[]} prElements
+ * @param {Array<{
+ *   number: number;
+ *   reviews: Array<{ author: string; state: string; html_url: string }>;
+ * }>} pullRequests
+ * @param {string} viewerLogin
+ */
+function applyApprovalDatasetsToRows(prElements, pullRequests, viewerLogin) {
+  const byNum = new Map(pullRequests.map((pr) => [String(pr.number), pr]));
+  for (const el of prElements) {
+    const num = el.id.replace('issue_', '');
+    const pr = byNum.get(num);
+    if (pr) {
+      const approved = pr.reviews.some(
+        (r) =>
+          r.author === viewerLogin &&
+          r.state === PullRequestReviewState.APPROVED,
+      );
+      el.dataset[approvedByYouKey] = String(approved);
+    } else {
+      delete el.dataset[approvedByYouKey];
+    }
+  }
+}
+
+/**
  * @param {import('./types/github-extension-global').ExtensionSettings} settings
  */
 function getSortKey(settings) {
@@ -400,6 +425,22 @@ function sortByKey(settings) {
     return aIdx - bIdx;
   });
 
+  const approvalFilterOn =
+    !!settings.token &&
+    (settings.filterApprovedByMe || settings.filterNotApprovedByMe);
+
+  for (const el of sorted) {
+    if (!approvalFilterOn) {
+      el.hidden = false;
+      continue;
+    }
+    const approvedByYou = el.dataset[approvedByYouKey] === 'true';
+    const show =
+      (approvedByYou && settings.filterApprovedByMe) ||
+      (!approvedByYou && settings.filterNotApprovedByMe);
+    el.hidden = !show;
+  }
+
   container.replaceChildren(...sorted);
 }
 
@@ -408,11 +449,48 @@ function sortByKey(settings) {
  */
 async function refreshPullsListDependencySort(settings) {
   setPRDefaultSort();
-  if (!settings.groupByDependency || !settings.token) {
+
+  const needsGraph =
+    !!settings.token &&
+    (settings.groupByDependency ||
+      settings.filterApprovedByMe ||
+      settings.filterNotApprovedByMe);
+
+  if (!needsGraph) {
+    const { prElements } = getPRElements();
+    if (prElements?.length) {
+      for (const el of prElements) {
+        delete el.dataset[approvedByYouKey];
+        el.hidden = false;
+      }
+    }
     sortByKey(settings);
     return;
   }
-  await setDependencySort(settings);
+
+  const pathParts = window.location.pathname.split('/');
+  const owner = pathParts[1];
+  const repo = pathParts[2];
+  if (!owner || !repo) {
+    sortByKey(settings);
+    return;
+  }
+
+  const { viewerLogin, pullRequests } = await fetchOpenPullRequestsForRepo(
+    owner,
+    repo,
+    settings.token ?? '',
+  );
+
+  if (settings.groupByDependency) {
+    await setDependencySort(settings, viewerLogin, pullRequests);
+  }
+
+  const { prElements } = getPRElements();
+  if (prElements?.length) {
+    applyApprovalDatasetsToRows(prElements, pullRequests, viewerLogin);
+  }
+
   sortByKey(settings);
 }
 

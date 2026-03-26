@@ -7,6 +7,11 @@ export interface ExtensionSettings {
   sortOldest: boolean;
   groupByDependency: boolean;
   token?: string;
+  filterDraftsOut: boolean;
+  filterApprovedByMe: boolean;
+  filterNotApprovedByMe: boolean;
+  filterOnlyMyPRs: boolean;
+  filterNotMyPRs: boolean;
 }
 
 export interface GitHubQueryOption {

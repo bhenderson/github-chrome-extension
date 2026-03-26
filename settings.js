@@ -18,7 +18,12 @@ const StorageAreaKey = Object.freeze({
  * @typedef {Object} ExtensionSettings
  * @property {boolean} sortOldest When true, repo pulls list URLs gain oldest-first `q` defaults.
  * @property {boolean} groupByDependency When true, open PRs on the pulls list are reordered by dependency chain (requires token).
- * @property {string} [token] Optional GitHub token for future use; never log or expose in UI in full.
+ * @property {string} [token] Optional GitHub token for GraphQL; never log or expose in UI in full.
+ * @property {boolean} filterDraftsOut Adds `draft:false` to the pulls `q` string.
+ * @property {boolean} filterApprovedByMe Hides PR rows the viewer has not approved (requires token + API data).
+ * @property {boolean} filterNotApprovedByMe Hides PR rows the viewer has approved (requires token + API data).
+ * @property {boolean} filterOnlyMyPRs Adds `author:viewer` to `q` (uses page login when available).
+ * @property {boolean} filterNotMyPRs Adds `-author:viewer` to `q`.
  */
 
 /**
@@ -30,6 +35,11 @@ const DEFAULT_EXTENSION_SETTINGS = Object.freeze({
   sortOldest: false,
   groupByDependency: false,
   token: '',
+  filterDraftsOut: false,
+  filterApprovedByMe: false,
+  filterNotApprovedByMe: false,
+  filterOnlyMyPRs: false,
+  filterNotMyPRs: false,
 });
 
 /**
@@ -47,6 +57,16 @@ function isExtensionSettings(value) {
     return false;
   }
   if (o.token !== undefined && typeof o.token !== 'string') return false;
+  const boolKeys = [
+    'filterDraftsOut',
+    'filterApprovedByMe',
+    'filterNotApprovedByMe',
+    'filterOnlyMyPRs',
+    'filterNotMyPRs',
+  ];
+  for (const k of boolKeys) {
+    if (o[k] !== undefined && typeof o[k] !== 'boolean') return false;
+  }
   return true;
 }
 
@@ -69,6 +89,26 @@ function normalizeSettings(partial) {
       typeof partial?.token === 'string'
         ? partial.token
         : DEFAULT_EXTENSION_SETTINGS.token,
+    filterDraftsOut:
+      typeof partial?.filterDraftsOut === 'boolean'
+        ? partial.filterDraftsOut
+        : DEFAULT_EXTENSION_SETTINGS.filterDraftsOut,
+    filterApprovedByMe:
+      typeof partial?.filterApprovedByMe === 'boolean'
+        ? partial.filterApprovedByMe
+        : DEFAULT_EXTENSION_SETTINGS.filterApprovedByMe,
+    filterNotApprovedByMe:
+      typeof partial?.filterNotApprovedByMe === 'boolean'
+        ? partial.filterNotApprovedByMe
+        : DEFAULT_EXTENSION_SETTINGS.filterNotApprovedByMe,
+    filterOnlyMyPRs:
+      typeof partial?.filterOnlyMyPRs === 'boolean'
+        ? partial.filterOnlyMyPRs
+        : DEFAULT_EXTENSION_SETTINGS.filterOnlyMyPRs,
+    filterNotMyPRs:
+      typeof partial?.filterNotMyPRs === 'boolean'
+        ? partial.filterNotMyPRs
+        : DEFAULT_EXTENSION_SETTINGS.filterNotMyPRs,
   };
 }
 
@@ -99,7 +139,13 @@ function loadSettings() {
  */
 function saveSettingsPatch(patch) {
   return loadSettings().then((current) => {
-    const next = normalizeSettings({ ...current, ...patch });
+    /** @type {Partial<ExtensionSettings>} */
+    const p = { ...patch };
+    if (p.filterApprovedByMe === true) p.filterNotApprovedByMe = false;
+    if (p.filterNotApprovedByMe === true) p.filterApprovedByMe = false;
+    if (p.filterOnlyMyPRs === true) p.filterNotMyPRs = false;
+    if (p.filterNotMyPRs === true) p.filterOnlyMyPRs = false;
+    const next = normalizeSettings({ ...current, ...p });
     return new Promise((resolve, reject) => {
       chrome.storage.local.set({ [StorageAreaKey.SETTINGS]: next }, () => {
         const err = chrome.runtime.lastError;
