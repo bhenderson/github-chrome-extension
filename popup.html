@@ -36,7 +36,16 @@
         <input type="checkbox" id="filter-not-my-prs" />
         <span>Not my PRs</span>
       </label>
-      <button type="button" id="set-token" class="token-btn">Set Token</button>
+      <div class="token-row">
+        <button type="button" id="set-token" class="token-btn">Set Token</button>
+        <a
+          id="generate-token"
+          class="token-generate-link"
+          href="https://github.com/settings/tokens/new?scopes=repo"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Generate token</a>
+      </div>
       <p id="token-hint" class="hint" aria-live="polite"></p>
     </main>
     <script src="settings.js"></script>

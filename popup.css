@@ -52,6 +52,13 @@ body {
   accent-color: var(--accent);
 }
 
+.token-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .token-btn {
   padding: 6px 10px;
   border: 1px solid var(--border);
@@ -69,6 +76,23 @@ body {
 .token-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.token-generate-link {
+  font-size: 12px;
+  text-align: center;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.token-generate-link:hover {
+  text-decoration: underline;
+}
+
+.token-generate-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .hint {
