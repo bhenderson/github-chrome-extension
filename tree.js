@@ -7,6 +7,8 @@
  * @property {number} number
  * @property {string} headRefName
  * @property {string} baseRefName
+ * @property {Array<{ author: string; state: string; html_url: string }>} [reviews]
+ * @property {string | null} [reviewDecision]
  */
 
 /**

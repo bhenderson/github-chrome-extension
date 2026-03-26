@@ -19,6 +19,126 @@ const ext = _ext;
 const defaultSortKey = '__gce_defaultSort';
 const dependencySortKey = '__gce_dependencySort';
 
+/** Marks extension-injected review UI for cleanup before re-render. */
+const REVIEW_UI_ATTR = 'data-gce-review';
+
+const PullRequestReviewState = /** @type {const} */ ({
+  APPROVED: 'APPROVED',
+  CHANGES_REQUESTED: 'CHANGES_REQUESTED',
+  COMMENTED: 'COMMENTED',
+  DISMISSED: 'DISMISSED',
+  PENDING: 'PENDING',
+});
+
+const PullRequestReviewDecision = /** @type {const} */ ({
+  APPROVED: 'APPROVED',
+  CHANGES_REQUESTED: 'CHANGES_REQUESTED',
+  REVIEW_REQUIRED: 'REVIEW_REQUIRED',
+  NONE: null,
+});
+
+/** @type {string} */
+let currentUser = '';
+
+/**
+ * @template T
+ * @param {Array<T>} array
+ * @param {(value: T) => boolean} predicate
+ * @returns {[Array<T>, Array<T>]}
+ */
+function partition(array, predicate) {
+  const initial = /** @type {[Array<T>, Array<T>]} */ ([[], []]);
+
+  return array.reduce(
+    ([a, b], value) => ((predicate(value) ? a : b).push(value), [a, b]),
+    initial,
+  );
+}
+
+/**
+ * @param {Array<{ author: string; state: string; html_url: string }>} reviews
+ * @returns {HTMLElement | null}
+ */
+function createReviewElements(reviews) {
+  if (!reviews.length) return null;
+
+  const span = document.createElement('span');
+  span.classList.add('ml-1');
+  span.setAttribute(REVIEW_UI_ATTR, '1');
+
+  span.append(' by ');
+
+  const children = reviews.flatMap((review) => {
+    const statusEl = document.createElement('a');
+    statusEl.href = review.html_url;
+    statusEl.textContent = review.author === currentUser ? 'you' : review.author;
+    return [statusEl, ', '];
+  });
+
+  children.pop();
+  span.append(...children);
+
+  return span;
+}
+
+/**
+ * Appends approved / changes-requested reviewer names next to the PR meta line (see main worktree).
+ * @param {Object} pr
+ * @param {HTMLElement} node
+ */
+function showReviewers(pr, node) {
+  const p = /** @type {{
+    reviews?: Array<{ author: string; state: string; html_url: string }>;
+    reviewDecision?: string | null;
+  }} */ (pr);
+
+  const reviews = (p.reviews ?? []).filter(
+    (/** @type {{ author: string; state: string; html_url: string }} */ review) =>
+      review.state === PullRequestReviewState.APPROVED ||
+      review.state === PullRequestReviewState.CHANGES_REQUESTED,
+  );
+  if (reviews.length === 0) return;
+
+  const [approvedReviews, changesRequestedReviews] = partition(
+    reviews,
+    (/** @type {{ author: string; state: string; html_url: string }} */ review) =>
+      review.state === PullRequestReviewState.APPROVED,
+  );
+  const lastChild = node.children[node.children.length - 1];
+
+  if (!lastChild) return;
+
+  switch (p.reviewDecision ?? PullRequestReviewDecision.NONE) {
+    case PullRequestReviewDecision.CHANGES_REQUESTED: {
+      const reviewElements = createReviewElements(changesRequestedReviews);
+      if (reviewElements) {
+        node.append(reviewElements);
+      }
+      if (!approvedReviews.length) break;
+
+      const span = document.createElement('span');
+      span.classList.add('ml-1');
+      span.setAttribute(REVIEW_UI_ATTR, '1');
+      span.innerText = ' • Approved ';
+      node.append(span);
+    }
+    // fall through
+    case PullRequestReviewDecision.APPROVED: {
+      const reviewElements = createReviewElements(approvedReviews);
+      if (reviewElements) {
+        node.append(reviewElements);
+      }
+      break;
+    }
+    case PullRequestReviewDecision.REVIEW_REQUIRED:
+      break;
+    case PullRequestReviewDecision.NONE:
+      break;
+    default:
+      break;
+  }
+}
+
 /**
  * @param {string} pathname
  * @returns {boolean}
@@ -151,11 +271,12 @@ async function setDependencySort(settings) {
   const repo = pathParts[2];
   if (!owner || !repo) return;
 
-  const pullRequests = await fetchOpenPullRequestsForRepo(
+  const { viewerLogin, pullRequests } = await fetchOpenPullRequestsForRepo(
     owner,
     repo,
     settings.token ?? '',
   );
+  currentUser = viewerLogin;
 
   const elementByPRNumber = /** @type {Record<string, HTMLElement>} */ ({});
   for (const el of prElements) {
@@ -200,6 +321,12 @@ async function setDependencySort(settings) {
       const statusSpan = openedBySpan?.parentElement;
 
       if (statusSpan) {
+        for (const el of Array.from(
+          statusSpan.querySelectorAll(`[${REVIEW_UI_ATTR}]`),
+        )) {
+          el.remove();
+        }
+
         for (const label of Array.from(
           statusSpan.querySelectorAll('.base-branch-label'),
         )) {
@@ -227,6 +354,8 @@ async function setDependencySort(settings) {
           });
           statusSpan.prepend(depthLabel, ' ');
         }
+
+        showReviewers(pr, statusSpan);
       }
     }
     for (const child of children) {

@@ -32,6 +32,13 @@ declare function fetchOpenPullRequestsForRepo(
   owner: string,
   repo: string,
   token: string,
-): Promise<
-  Array<{ number: number; headRefName: string; baseRefName: string }>
->;
+): Promise<{
+  viewerLogin: string;
+  pullRequests: Array<{
+    number: number;
+    headRefName: string;
+    baseRefName: string;
+    reviews: Array<{ author: string; state: string; html_url: string }>;
+    reviewDecision: string | null;
+  }>;
+}>;

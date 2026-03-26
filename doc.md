@@ -5,7 +5,7 @@
 - **Manifest V3** extension scoped to **`https://github.com/*`** and **`https://api.github.com/*`** via `host_permissions` (GitHub UI plus GraphQL for PR data). **`storage`** is requested for settings.
 - **Popup** (`popup.html` + `popup.css` + `popup.js`) is the UI: toolbar menu reads and writes **global settings** in **`chrome.storage.local`** (see `settings.js`).
 - **Content script** runs on GitHub pages (`settings.js` → `github-query-options.js` → `tree.js` → `github-prs.js` → `content.js`, `document_start`). It applies **Sort Oldest** by merging a fixed search **`q`** bundle on **repo pulls list** URLs only (`/owner/repo/pulls`). It listens to **`chrome.storage.onChanged`** so URL updates track popup toggles without a manual refresh.
-- **Group by dependency** (`settings.groupByDependency`): when enabled together with a **GitHub token**, after the pulls list DOM is ready (`load` and **`turbo:render`** with a short delay), the extension calls the **GraphQL API** for open PRs (`headRefName` / `baseRefName`), builds a **dependency tree** (`tree.js`), assigns sort indices, optionally renders a small depth badge on chained PRs, and **reorders** rows under **`.js-navigation-container`** (`#issue_*`). Up to **100** open PRs are fetched per request (GitHub API limit).
+- **Group by dependency** (`settings.groupByDependency`): when enabled together with a **GitHub token**, after the pulls list DOM is ready (`load` and **`turbo:render`** with a short delay), the extension calls the **GraphQL API** for open PRs: **`viewer.login`**, **refs** (`headRefName` / `baseRefName`), **`reviewDecision`**, and **`latestReviews`** (author `login`/`url`, `state`). It builds a **dependency tree** (`tree.js`), assigns sort indices, optionally renders a small depth badge on chained PRs, **appends reviewer lines** (approved / changes requested — same pattern as the main worktree) and **reorders** rows under **`.js-navigation-container`** (`#issue_*`). Injected review markup is tagged with **`data-gce-review`** so it can be cleared before re-render. Up to **100** open PRs and **100** latest reviews per PR are fetched per request (GitHub API limits).
 - **Shared settings** (`settings.js`) define the storage key, defaults, `loadSettings` / `saveSettingsPatch`, and expose APIs for both popup and content.
 - **Query model** (`github-query-options.js`) implements GitHub-style **`q`** tokens as structured options (`negate`, `key`, optional `value`) with serialize/deserialize helpers and the pulls default bundle (`is:pr is:open sort:created-asc`).
 
@@ -19,8 +19,8 @@ Content scripts do not share a normal multi-file global scope reliably, so **`gl
 | `settings.js` | Storage keys, `ExtensionSettings`, load/save |
 | `github-query-options.js` | `GitHubQueryOption` helpers + pulls defaults |
 | `tree.js` | PR dependency tree from base/head refs (`buildTree`, `getBaseBranchColor`) |
-| `github-prs.js` | GraphQL fetch of open PRs for dependency ordering |
-| `content.js` | Pulls-list URL `q` merge/strip, dependency reorder + storage listener |
+| `github-prs.js` | GraphQL: `viewer` + open PRs with refs, reviews, `reviewDecision` |
+| `content.js` | Pulls-list URL `q` merge/strip, dependency reorder, reviewer UI, storage |
 | `popup.html` / `popup.css` / `popup.js` | Extension action menu |
 | `icons/` | Toolbar icons (PNG) |
 | `types/chrome.d.ts` | Minimal `chrome.*` typings (no npm `@types/chrome`) |
