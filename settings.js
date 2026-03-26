@@ -17,6 +17,7 @@ const StorageAreaKey = Object.freeze({
 /**
  * @typedef {Object} ExtensionSettings
  * @property {boolean} sortOldest When true, repo pulls list URLs gain oldest-first `q` defaults.
+ * @property {boolean} groupByDependency When true, open PRs on the pulls list are reordered by dependency chain (requires token).
  * @property {string} [token] Optional GitHub token for future use; never log or expose in UI in full.
  */
 
@@ -27,6 +28,7 @@ const StorageAreaKey = Object.freeze({
  */
 const DEFAULT_EXTENSION_SETTINGS = Object.freeze({
   sortOldest: false,
+  groupByDependency: false,
   token: '',
 });
 
@@ -38,6 +40,12 @@ function isExtensionSettings(value) {
   if (value === null || typeof value !== 'object') return false;
   const o = /** @type {Record<string, unknown>} */ (value);
   if (typeof o.sortOldest !== 'boolean') return false;
+  if (
+    o.groupByDependency !== undefined &&
+    typeof o.groupByDependency !== 'boolean'
+  ) {
+    return false;
+  }
   if (o.token !== undefined && typeof o.token !== 'string') return false;
   return true;
 }
@@ -53,6 +61,10 @@ function normalizeSettings(partial) {
       typeof partial?.sortOldest === 'boolean'
         ? partial.sortOldest
         : DEFAULT_EXTENSION_SETTINGS.sortOldest,
+    groupByDependency:
+      typeof partial?.groupByDependency === 'boolean'
+        ? partial.groupByDependency
+        : DEFAULT_EXTENSION_SETTINGS.groupByDependency,
     token:
       typeof partial?.token === 'string'
         ? partial.token

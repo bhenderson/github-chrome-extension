@@ -7,6 +7,9 @@
 const sortCheckbox = /** @type {HTMLInputElement} */ (
   document.getElementById('sort-oldest')
 );
+const groupByDependencyCheckbox = /** @type {HTMLInputElement} */ (
+  document.getElementById('group-by-dependency')
+);
 const tokenBtn = /** @type {HTMLButtonElement} */ (
   document.getElementById('set-token')
 );
@@ -14,7 +17,7 @@ const tokenHint = /** @type {HTMLParagraphElement} */ (
   document.getElementById('token-hint')
 );
 
-if (!sortCheckbox || !tokenBtn || !tokenHint) {
+if (!sortCheckbox || !groupByDependencyCheckbox || !tokenBtn || !tokenHint) {
   throw new Error('popup DOM missing required elements');
 }
 
@@ -34,12 +37,19 @@ function refreshTokenHint(settings) {
 function loadUi() {
   void loadSettings().then((s) => {
     sortCheckbox.checked = s.sortOldest;
+    groupByDependencyCheckbox.checked = s.groupByDependency;
     refreshTokenHint(s);
   });
 }
 
 sortCheckbox.addEventListener('change', () => {
   void saveSettingsPatch({ sortOldest: sortCheckbox.checked });
+});
+
+groupByDependencyCheckbox.addEventListener('change', () => {
+  void saveSettingsPatch({
+    groupByDependency: groupByDependencyCheckbox.checked,
+  });
 });
 
 tokenBtn.addEventListener('click', () => {

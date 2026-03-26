@@ -5,6 +5,7 @@
 
 export interface ExtensionSettings {
   sortOldest: boolean;
+  groupByDependency: boolean;
   token?: string;
 }
 
