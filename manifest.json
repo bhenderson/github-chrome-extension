@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub Extension",
+  "version": "0.1.0",
+  "description": "GitHub.com tools: sort oldest on pulls lists and token storage.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://github.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "GitHub Extension",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*"],
+      "js": ["settings.js", "github-query-options.js", "content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

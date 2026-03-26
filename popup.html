@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GitHub Extension</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="menu">
+      <label class="row">
+        <input type="checkbox" id="sort-oldest" />
+        <span>Sort Oldest</span>
+      </label>
+      <button type="button" id="set-token" class="token-btn">Set Token</button>
+      <p id="token-hint" class="hint" aria-live="polite"></p>
+    </main>
+    <script src="settings.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
