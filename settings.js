@@ -24,6 +24,10 @@ const StorageAreaKey = Object.freeze({
  * @property {boolean} filterNotApprovedByMe Hides PR rows the viewer has approved (requires token + API data).
  * @property {boolean} filterOnlyMyPRs Adds `author:viewer` to `q` (uses page login when available).
  * @property {boolean} filterNotMyPRs Adds `-author:viewer` to `q`.
+ * @property {string} [jiraBaseUrl] Jira Cloud instance URL (e.g. `https://acme.atlassian.net`).
+ * @property {string} [jiraEmail] Email for Jira Cloud Basic auth.
+ * @property {string} [jiraApiToken] Jira Cloud API token; never log or expose in UI in full.
+ * @property {string} [jiraTicketPattern] Regex (with one capture group) to extract a Jira key from branch names.
  */
 
 /**
@@ -40,6 +44,10 @@ const DEFAULT_EXTENSION_SETTINGS = Object.freeze({
   filterNotApprovedByMe: false,
   filterOnlyMyPRs: false,
   filterNotMyPRs: false,
+  jiraBaseUrl: '',
+  jiraEmail: '',
+  jiraApiToken: '',
+  jiraTicketPattern: '([A-Z][A-Z0-9]+-\\d+)',
 });
 
 /**
@@ -57,6 +65,10 @@ function isExtensionSettings(value) {
     return false;
   }
   if (o.token !== undefined && typeof o.token !== 'string') return false;
+  const jiraStringKeys = ['jiraBaseUrl', 'jiraEmail', 'jiraApiToken', 'jiraTicketPattern'];
+  for (const k of jiraStringKeys) {
+    if (o[k] !== undefined && typeof o[k] !== 'string') return false;
+  }
   const boolKeys = [
     'filterDraftsOut',
     'filterApprovedByMe',
@@ -109,6 +121,22 @@ function normalizeSettings(partial) {
       typeof partial?.filterNotMyPRs === 'boolean'
         ? partial.filterNotMyPRs
         : DEFAULT_EXTENSION_SETTINGS.filterNotMyPRs,
+    jiraBaseUrl:
+      typeof partial?.jiraBaseUrl === 'string'
+        ? partial.jiraBaseUrl
+        : DEFAULT_EXTENSION_SETTINGS.jiraBaseUrl,
+    jiraEmail:
+      typeof partial?.jiraEmail === 'string'
+        ? partial.jiraEmail
+        : DEFAULT_EXTENSION_SETTINGS.jiraEmail,
+    jiraApiToken:
+      typeof partial?.jiraApiToken === 'string'
+        ? partial.jiraApiToken
+        : DEFAULT_EXTENSION_SETTINGS.jiraApiToken,
+    jiraTicketPattern:
+      typeof partial?.jiraTicketPattern === 'string'
+        ? partial.jiraTicketPattern
+        : DEFAULT_EXTENSION_SETTINGS.jiraTicketPattern,
   };
 }
 

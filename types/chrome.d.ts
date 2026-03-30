@@ -29,5 +29,27 @@ declare namespace chrome {
 
   namespace runtime {
     const lastError: { message: string } | undefined;
+
+    function sendMessage(
+      message: unknown,
+      responseCallback?: (response: any) => void,
+    ): void;
+
+    const onMessage: {
+      addListener(
+        callback: (
+          message: any,
+          sender: any,
+          sendResponse: (response?: any) => void,
+        ) => boolean | void,
+      ): void;
+    };
+  }
+
+  namespace permissions {
+    function request(
+      permissions: { origins?: string[]; permissions?: string[] },
+      callback?: (granted: boolean) => void,
+    ): void;
   }
 }

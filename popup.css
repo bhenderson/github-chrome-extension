@@ -101,3 +101,54 @@ body {
   opacity: 0.85;
   word-break: break-all;
 }
+
+.separator {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+}
+
+.section-heading {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.field-label {
+  font-size: 11px;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.field-input {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  width: 100%;
+}
+
+.field-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.field-input.mono {
+  font-family: ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.advanced-toggle {
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.advanced-toggle summary {
+  color: var(--accent);
+  user-select: none;
+}
+
+.advanced-toggle summary:hover {
+  text-decoration: underline;
+}

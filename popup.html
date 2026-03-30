@@ -47,6 +47,27 @@
           >Generate token</a>
       </div>
       <p id="token-hint" class="hint" aria-live="polite"></p>
+
+      <hr class="separator" />
+
+      <div class="section-heading">Jira Cloud</div>
+      <label class="field-label" for="jira-base-url">Base URL</label>
+      <input type="text" id="jira-base-url" class="field-input"
+             placeholder="https://your-domain.atlassian.net" autocomplete="url" />
+      <label class="field-label" for="jira-email">Email</label>
+      <input type="email" id="jira-email" class="field-input"
+             placeholder="you@example.com" autocomplete="email" />
+      <label class="field-label" for="jira-api-token">API Token</label>
+      <input type="password" id="jira-api-token" class="field-input"
+             placeholder="Jira Cloud API token" autocomplete="off" />
+      <details class="advanced-toggle">
+        <summary>Advanced</summary>
+        <label class="field-label" for="jira-ticket-pattern">Ticket pattern (regex)</label>
+        <input type="text" id="jira-ticket-pattern" class="field-input mono"
+               placeholder="([A-Z][A-Z0-9]+-\d+)" autocomplete="off" />
+      </details>
+      <button type="button" id="save-jira" class="token-btn">Save Jira Settings</button>
+      <p id="jira-hint" class="hint" aria-live="polite"></p>
     </main>
     <script src="settings.js"></script>
     <script src="popup.js"></script>

@@ -9,6 +9,7 @@ A Manifest V3 Chrome extension for [github.com](https://github.com): tools for t
 - **Filter drafts out** — Adds `draft:false` to `q`.
 - **Only my PRs / Not my PRs** — Adds `author:<you>` or `-author:<you>` using the logged-in user from the page (`meta[name="user-login"]`).
 - **Filter approved by me / Filter not approved by me** — With a **token**, hides rows based on whether your latest review state is approved (uses the same GraphQL PR data as dependency mode).
+- **Jira ticket status** — With a **GitHub token** and **Jira Cloud** credentials, shows a [shields.io](https://shields.io) status badge on each PR whose branch name contains a Jira ticket key (e.g. `ABC-123-my-feature`). The badge links to the Jira ticket. Color reflects Jira's status category (gray = To Do, blue = In Progress, green = Done). Only **Jira Cloud (REST API v3)** is supported.
 
 Mutually exclusive pairs (approved / not approved; only mine / not mine) are enforced when saving settings.
 
@@ -35,6 +36,23 @@ GraphQL features (group by dependency, approval filters) need a **Personal Acces
 2. On GitHub, pick a name (e.g. “GitHub Extension”), confirm **`repo`** is selected, set an expiration, then create the token and copy it once (GitHub will not show it again).
 
 3. In the popup, click **Set Token** and paste the value. The UI shows a masked hint (last four characters only).
+
+## Setup (Jira Cloud)
+
+Jira status badges require a **Jira Cloud** instance (REST API v3). Jira Server / Data Center is not supported.
+
+1. **Create an API token** — Go to [Manage API tokens](https://id.atlassian.com/manage-profile/security/api-tokens) in your Atlassian account, click **Create API token**, give it a label (e.g. "GitHub Extension"), and copy the token (Atlassian will not show it again).
+
+2. In the extension popup, fill in the **Jira Cloud** section:
+   - **Base URL** — Your Jira Cloud instance URL, e.g. `https://acme.atlassian.net`
+   - **Email** — The email address associated with your Atlassian account
+   - **API Token** — The token you created in step 1
+
+3. Click **Save Jira Settings**. Chrome will ask you to grant the extension access to your Jira domain — accept the prompt.
+
+4. *(Optional)* Expand **Advanced** to customize the **Ticket pattern** regex. The default `([A-Z][A-Z0-9]+-\d+)` matches standard Jira keys like `ABC-123` anywhere in the branch name. Adjust if your convention differs.
+
+The Jira feature also requires a **GitHub token** (see above) because branch names come from the GitHub GraphQL API.
 
 ## How it works
 

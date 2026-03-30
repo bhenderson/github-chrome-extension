@@ -24,6 +24,15 @@ const approvedByYouKey = '__gce_approvedByYou';
 /** Marks extension-injected review UI for cleanup before re-render. */
 const REVIEW_UI_ATTR = 'data-gce-review';
 
+/** Marks extension-injected Jira badges for cleanup before re-render. */
+const JIRA_UI_ATTR = 'data-gce-jira';
+
+const JiraStatusCategoryColor = /** @type {const} */ ({
+  new: '6b778c',
+  indeterminate: '0052cc',
+  done: '36b37e',
+});
+
 const PullRequestReviewState = /** @type {const} */ ({
   APPROVED: 'APPROVED',
   CHANGES_REQUESTED: 'CHANGES_REQUESTED',
@@ -463,7 +472,10 @@ async function refreshPullsListDependencySort(settings) {
       settings.filterApprovedByMe ||
       settings.filterNotApprovedByMe);
 
-  if (!needsGraph) {
+  const needsJira = isJiraConfigured(settings);
+  const needsFetch = needsGraph || (needsJira && !!settings.token);
+
+  if (!needsFetch) {
     const { prElements } = getPRElements();
     if (prElements?.length) {
       for (const el of prElements) {
@@ -499,6 +511,128 @@ async function refreshPullsListDependencySort(settings) {
   }
 
   sortByKey(settings);
+
+  if (needsJira && pullRequests.length) {
+    await renderJiraStatusBadges(settings, pullRequests);
+  }
+}
+
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function shieldsIoEncode(text) {
+  return encodeURIComponent(text.replace(/-/g, '--'));
+}
+
+/**
+ * @param {string} key
+ * @param {string} statusName
+ * @param {string} statusCategoryKey
+ * @returns {string}
+ */
+function buildShieldsBadgeUrl(key, statusName, statusCategoryKey) {
+  const color = JiraStatusCategoryColor[/** @type {keyof typeof JiraStatusCategoryColor} */ (statusCategoryKey)] ?? JiraStatusCategoryColor.indeterminate;
+  return `https://img.shields.io/badge/${shieldsIoEncode(key)}-${shieldsIoEncode(statusName)}-${color}`;
+}
+
+/**
+ * @param {import('./types/github-extension-global').ExtensionSettings} settings
+ * @returns {boolean}
+ */
+function isJiraConfigured(settings) {
+  return !!(settings.jiraBaseUrl && settings.jiraEmail && settings.jiraApiToken);
+}
+
+/**
+ * @param {string} branchName
+ * @param {string} patternStr
+ * @returns {string | null}
+ */
+function extractJiraKey(branchName, patternStr) {
+  try {
+    const match = new RegExp(patternStr).exec(branchName);
+    return match?.[1] ?? match?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetches Jira statuses and renders shields.io badges on PR rows.
+ * @param {import('./types/github-extension-global').ExtensionSettings} settings
+ * @param {Array<{ number: number; headRefName: string }>} pullRequests
+ */
+async function renderJiraStatusBadges(settings, pullRequests) {
+  const { prElements } = getPRElements();
+  if (!prElements?.length) return;
+
+  for (const el of Array.from(document.querySelectorAll(`[${JIRA_UI_ATTR}]`))) {
+    el.remove();
+  }
+
+  if (!isJiraConfigured(settings)) return;
+
+  const pattern = settings.jiraTicketPattern || '([A-Z][A-Z0-9]+-\\d+)';
+
+  /** @type {Map<string, string>} */
+  const keyByPrNumber = new Map();
+  /** @type {Set<string>} */
+  const allKeys = new Set();
+
+  for (const pr of pullRequests) {
+    const key = extractJiraKey(pr.headRefName, pattern);
+    if (key) {
+      keyByPrNumber.set(String(pr.number), key);
+      allKeys.add(key);
+    }
+  }
+
+  if (!allKeys.size) return;
+
+  /** @type {{ success: boolean; data: Record<string, { statusName: string; statusCategoryKey: string; issueUrl: string }> }} */
+  const response = await new Promise((resolve) => {
+    chrome.runtime.sendMessage(
+      {
+        type: 'JIRA_FETCH_ISSUES',
+        jiraBaseUrl: settings.jiraBaseUrl,
+        jiraEmail: settings.jiraEmail,
+        jiraApiToken: settings.jiraApiToken,
+        issueKeys: [...allKeys],
+      },
+      (res) => resolve(res ?? { success: false, data: {} }),
+    );
+  });
+
+  if (!response.success) return;
+  const statusMap = response.data;
+
+  for (const el of prElements) {
+    const prNumber = el.id.replace('issue_', '');
+    const jiraKey = keyByPrNumber.get(prNumber);
+    if (!jiraKey) continue;
+
+    const issueData = statusMap[jiraKey];
+    if (!issueData) continue;
+
+    const details = el.querySelector('details');
+    if (!details) continue;
+
+    const link = document.createElement('a');
+    link.href = issueData.issueUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.setAttribute(JIRA_UI_ATTR, '1');
+    Object.assign(link.style, { marginLeft: '8px', marginRight: '6px', verticalAlign: 'middle' });
+
+    const img = document.createElement('img');
+    img.src = buildShieldsBadgeUrl(jiraKey, issueData.statusName, issueData.statusCategoryKey);
+    img.alt = `${jiraKey}: ${issueData.statusName}`;
+    Object.assign(img.style, { height: '20px', verticalAlign: 'middle' });
+
+    link.appendChild(img);
+    details.insertAdjacentElement('afterend', link);
+  }
 }
 
 function initPullsListDependencyFeatures() {

@@ -31,6 +31,24 @@ const tokenBtn = /** @type {HTMLButtonElement} */ (
 const tokenHint = /** @type {HTMLParagraphElement} */ (
   document.getElementById('token-hint')
 );
+const jiraBaseUrlInput = /** @type {HTMLInputElement} */ (
+  document.getElementById('jira-base-url')
+);
+const jiraEmailInput = /** @type {HTMLInputElement} */ (
+  document.getElementById('jira-email')
+);
+const jiraApiTokenInput = /** @type {HTMLInputElement} */ (
+  document.getElementById('jira-api-token')
+);
+const jiraTicketPatternInput = /** @type {HTMLInputElement} */ (
+  document.getElementById('jira-ticket-pattern')
+);
+const saveJiraBtn = /** @type {HTMLButtonElement} */ (
+  document.getElementById('save-jira')
+);
+const jiraHint = /** @type {HTMLParagraphElement} */ (
+  document.getElementById('jira-hint')
+);
 
 if (
   !sortCheckbox ||
@@ -41,7 +59,13 @@ if (
   !filterOnlyMyPRsCheckbox ||
   !filterNotMyPRsCheckbox ||
   !tokenBtn ||
-  !tokenHint
+  !tokenHint ||
+  !jiraBaseUrlInput ||
+  !jiraEmailInput ||
+  !jiraApiTokenInput ||
+  !jiraTicketPatternInput ||
+  !saveJiraBtn ||
+  !jiraHint
 ) {
   throw new Error('popup DOM missing required elements');
 }
@@ -59,6 +83,28 @@ function refreshTokenHint(settings) {
   tokenHint.textContent = `Token: ${tail}`;
 }
 
+/**
+ * @param {ExtensionSettings} settings
+ */
+function refreshJiraHint(settings) {
+  const t = settings.jiraApiToken ?? '';
+  const base = settings.jiraBaseUrl ?? '';
+  if (!base && !t) {
+    jiraHint.textContent = 'Jira not configured.';
+    return;
+  }
+  if (!base) {
+    jiraHint.textContent = 'Missing Jira base URL.';
+    return;
+  }
+  if (!t) {
+    jiraHint.textContent = 'Missing Jira API token.';
+    return;
+  }
+  const tail = t.length <= 4 ? '••••' : `••••${t.slice(-4)}`;
+  jiraHint.textContent = `Jira token: ${tail}`;
+}
+
 function loadUi() {
   void loadSettings().then((s) => {
     sortCheckbox.checked = s.sortOldest;
@@ -69,6 +115,11 @@ function loadUi() {
     filterOnlyMyPRsCheckbox.checked = s.filterOnlyMyPRs;
     filterNotMyPRsCheckbox.checked = s.filterNotMyPRs;
     refreshTokenHint(s);
+    jiraBaseUrlInput.value = s.jiraBaseUrl ?? '';
+    jiraEmailInput.value = s.jiraEmail ?? '';
+    jiraApiTokenInput.value = s.jiraApiToken ?? '';
+    jiraTicketPatternInput.value = s.jiraTicketPattern ?? '([A-Z][A-Z0-9]+-\\d+)';
+    refreshJiraHint(s);
   });
 }
 
@@ -116,6 +167,53 @@ tokenBtn.addEventListener('click', () => {
     );
     if (entered === null) return;
     void saveSettingsPatch({ token: entered }).then(loadUi);
+  });
+});
+
+saveJiraBtn.addEventListener('click', () => {
+  const baseUrl = jiraBaseUrlInput.value.trim().replace(/\/+$/, '');
+  const email = jiraEmailInput.value.trim();
+  const apiToken = jiraApiTokenInput.value;
+  const pattern = jiraTicketPatternInput.value.trim();
+
+  if (baseUrl && !email) {
+    jiraHint.textContent = 'Email is required for Jira Cloud auth.';
+    return;
+  }
+  if (baseUrl && !apiToken) {
+    jiraHint.textContent = 'API token is required for Jira Cloud auth.';
+    return;
+  }
+
+  /** @type {() => void} */
+  const save = () => {
+    void saveSettingsPatch({
+      jiraBaseUrl: baseUrl,
+      jiraEmail: email,
+      jiraApiToken: apiToken,
+      jiraTicketPattern: pattern || '([A-Z][A-Z0-9]+-\\d+)',
+    }).then(loadUi);
+  };
+
+  if (!baseUrl) {
+    save();
+    return;
+  }
+
+  let origin;
+  try {
+    origin = new URL(baseUrl).origin;
+  } catch {
+    jiraHint.textContent = 'Invalid Jira URL.';
+    return;
+  }
+
+  chrome.permissions.request({ origins: [`${origin}/*`] }, (granted) => {
+    if (granted) {
+      save();
+    } else {
+      jiraHint.textContent = 'Host permission denied — cannot reach Jira.';
+    }
   });
 });
 

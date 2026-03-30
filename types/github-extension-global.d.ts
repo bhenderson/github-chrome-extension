@@ -12,6 +12,10 @@ export interface ExtensionSettings {
   filterNotApprovedByMe: boolean;
   filterOnlyMyPRs: boolean;
   filterNotMyPRs: boolean;
+  jiraBaseUrl?: string;
+  jiraEmail?: string;
+  jiraApiToken?: string;
+  jiraTicketPattern?: string;
 }
 
 export interface GitHubQueryOption {
