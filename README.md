@@ -9,7 +9,7 @@ A Manifest V3 Chrome extension for [github.com](https://github.com): tools for t
 - **Filter drafts out** — Adds `draft:false` to `q`.
 - **Only my PRs / Not my PRs** — Adds `author:<you>` or `-author:<you>` using the logged-in user from the page (`meta[name="user-login"]`).
 - **Filter approved by me / Filter not approved by me** — With a **token**, hides rows based on whether your latest review state is approved (uses the same GraphQL PR data as dependency mode).
-- **Jira ticket status** — With a **GitHub token** and **Jira Cloud** credentials, shows a [shields.io](https://shields.io) status badge on each PR whose branch name contains a Jira ticket key (e.g. `ABC-123-my-feature`). The badge links to the Jira ticket. Color reflects Jira's status category (gray = To Do, blue = In Progress, green = Done). Only **Jira Cloud (REST API v3)** is supported.
+- **Jira ticket status** — With a **GitHub token** and **Jira Cloud** credentials, shows a status badge on each PR whose branch name contains a Jira ticket key (e.g. `ABC-123-my-feature`). The badge links to the Jira ticket. Color reflects Jira's status category (gray = To Do, blue = In Progress, green = Done). Only **Jira Cloud (REST API v3)** is supported.
 
 Mutually exclusive pairs (approved / not approved; only mine / not mine) are enforced when saving settings.
 

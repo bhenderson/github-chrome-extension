@@ -518,22 +518,11 @@ async function refreshPullsListDependencySort(settings) {
 }
 
 /**
- * @param {string} text
- * @returns {string}
- */
-function shieldsIoEncode(text) {
-  return encodeURIComponent(text.replace(/-/g, '--'));
-}
-
-/**
- * @param {string} key
- * @param {string} statusName
  * @param {string} statusCategoryKey
  * @returns {string}
  */
-function buildShieldsBadgeUrl(key, statusName, statusCategoryKey) {
-  const color = JiraStatusCategoryColor[/** @type {keyof typeof JiraStatusCategoryColor} */ (statusCategoryKey)] ?? JiraStatusCategoryColor.indeterminate;
-  return `https://img.shields.io/badge/${shieldsIoEncode(key)}-${shieldsIoEncode(statusName)}-${color}`;
+function jiraStatusColor(statusCategoryKey) {
+  return `#${JiraStatusCategoryColor[/** @type {keyof typeof JiraStatusCategoryColor} */ (statusCategoryKey)] ?? JiraStatusCategoryColor.indeterminate}`;
 }
 
 /**
@@ -559,7 +548,7 @@ function extractJiraKey(branchName, patternStr) {
 }
 
 /**
- * Fetches Jira statuses and renders shields.io badges on PR rows.
+ * Fetches Jira statuses and renders status badges on PR rows.
  * @param {import('./types/github-extension-global').ExtensionSettings} settings
  * @param {Array<{ number: number; headRefName: string }>} pullRequests
  */
@@ -618,19 +607,45 @@ async function renderJiraStatusBadges(settings, pullRequests) {
     const details = el.querySelector('details');
     if (!details) continue;
 
+    const badgeStyle = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      marginLeft: '8px',
+      marginRight: '6px',
+      verticalAlign: 'middle',
+      borderRadius: '3px',
+      overflow: 'hidden',
+      fontSize: '11px',
+      fontFamily: 'Verdana,Geneva,DejaVu Sans,sans-serif',
+      fontWeight: 'normal',
+      lineHeight: '1',
+      textDecoration: 'none',
+    };
+
     const link = document.createElement('a');
     link.href = issueData.issueUrl;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     link.setAttribute(JIRA_UI_ATTR, '1');
-    Object.assign(link.style, { marginLeft: '8px', marginRight: '6px', verticalAlign: 'middle' });
+    Object.assign(link.style, badgeStyle);
 
-    const img = document.createElement('img');
-    img.src = buildShieldsBadgeUrl(jiraKey, issueData.statusName, issueData.statusCategoryKey);
-    img.alt = `${jiraKey}: ${issueData.statusName}`;
-    Object.assign(img.style, { height: '20px', verticalAlign: 'middle' });
+    const keySpan = document.createElement('span');
+    keySpan.textContent = jiraKey;
+    Object.assign(keySpan.style, {
+      padding: '3px 6px',
+      backgroundColor: '#555',
+      color: '#fff',
+    });
 
-    link.appendChild(img);
+    const statusSpan = document.createElement('span');
+    statusSpan.textContent = issueData.statusName;
+    Object.assign(statusSpan.style, {
+      padding: '3px 6px',
+      backgroundColor: jiraStatusColor(issueData.statusCategoryKey),
+      color: '#fff',
+    });
+
+    link.append(keySpan, statusSpan);
     details.insertAdjacentElement('afterend', link);
   }
 }
