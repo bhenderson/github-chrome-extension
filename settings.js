@@ -18,6 +18,7 @@ const StorageAreaKey = Object.freeze({
  * @typedef {Object} ExtensionSettings
  * @property {boolean} sortOldest When true, repo pulls list URLs gain oldest-first `q` defaults.
  * @property {boolean} groupByDependency When true, open PRs on the pulls list are reordered by dependency chain (requires token).
+ * @property {string} [ignoreDependencyBases] Comma-separated base branch names that never count as PR parents (e.g. trunk sync PRs).
  * @property {string} [token] Optional GitHub token for GraphQL; never log or expose in UI in full.
  * @property {boolean} filterDraftsOut Adds `draft:false` to the pulls `q` string.
  * @property {boolean} filterApprovedByMe Hides PR rows the viewer has not approved (requires token + API data).
@@ -38,6 +39,7 @@ const StorageAreaKey = Object.freeze({
 const DEFAULT_EXTENSION_SETTINGS = Object.freeze({
   sortOldest: false,
   groupByDependency: false,
+  ignoreDependencyBases: 'develop,main,master',
   token: '',
   filterDraftsOut: false,
   filterApprovedByMe: false,
@@ -65,6 +67,12 @@ function isExtensionSettings(value) {
     return false;
   }
   if (o.token !== undefined && typeof o.token !== 'string') return false;
+  if (
+    o.ignoreDependencyBases !== undefined &&
+    typeof o.ignoreDependencyBases !== 'string'
+  ) {
+    return false;
+  }
   const jiraStringKeys = ['jiraBaseUrl', 'jiraEmail', 'jiraApiToken', 'jiraTicketPattern'];
   for (const k of jiraStringKeys) {
     if (o[k] !== undefined && typeof o[k] !== 'string') return false;
@@ -97,6 +105,10 @@ function normalizeSettings(partial) {
       typeof partial?.groupByDependency === 'boolean'
         ? partial.groupByDependency
         : DEFAULT_EXTENSION_SETTINGS.groupByDependency,
+    ignoreDependencyBases:
+      typeof partial?.ignoreDependencyBases === 'string'
+        ? partial.ignoreDependencyBases
+        : DEFAULT_EXTENSION_SETTINGS.ignoreDependencyBases,
     token:
       typeof partial?.token === 'string'
         ? partial.token

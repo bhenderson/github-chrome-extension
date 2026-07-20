@@ -10,6 +10,9 @@ const sortCheckbox = /** @type {HTMLInputElement} */ (
 const groupByDependencyCheckbox = /** @type {HTMLInputElement} */ (
   document.getElementById('group-by-dependency')
 );
+const ignoreDependencyBasesInput = /** @type {HTMLInputElement} */ (
+  document.getElementById('ignore-dependency-bases')
+);
 const filterDraftsOutCheckbox = /** @type {HTMLInputElement} */ (
   document.getElementById('filter-drafts-out')
 );
@@ -53,6 +56,7 @@ const jiraHint = /** @type {HTMLParagraphElement} */ (
 if (
   !sortCheckbox ||
   !groupByDependencyCheckbox ||
+  !ignoreDependencyBasesInput ||
   !filterDraftsOutCheckbox ||
   !filterApprovedByMeCheckbox ||
   !filterNotApprovedByMeCheckbox ||
@@ -109,6 +113,8 @@ function loadUi() {
   void loadSettings().then((s) => {
     sortCheckbox.checked = s.sortOldest;
     groupByDependencyCheckbox.checked = s.groupByDependency;
+    ignoreDependencyBasesInput.value =
+      s.ignoreDependencyBases ?? 'develop,main,master';
     filterDraftsOutCheckbox.checked = s.filterDraftsOut;
     filterApprovedByMeCheckbox.checked = s.filterApprovedByMe;
     filterNotApprovedByMeCheckbox.checked = s.filterNotApprovedByMe;
@@ -131,6 +137,33 @@ groupByDependencyCheckbox.addEventListener('change', () => {
   void saveSettingsPatch({
     groupByDependency: groupByDependencyCheckbox.checked,
   });
+});
+
+/**
+ * Persist ignore-bases list (trim commas/spaces for consistency).
+ */
+function saveIgnoreDependencyBases() {
+  const raw = ignoreDependencyBasesInput.value;
+  const normalized = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(',');
+  if (normalized !== raw) {
+    ignoreDependencyBasesInput.value = normalized;
+  }
+  void saveSettingsPatch({ ignoreDependencyBases: normalized });
+}
+
+ignoreDependencyBasesInput.addEventListener('change', () => {
+  saveIgnoreDependencyBases();
+});
+
+ignoreDependencyBasesInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    ignoreDependencyBasesInput.blur();
+  }
 });
 
 filterDraftsOutCheckbox.addEventListener('change', () => {

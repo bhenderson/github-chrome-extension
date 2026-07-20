@@ -16,6 +16,11 @@
         <input type="checkbox" id="group-by-dependency" />
         <span>Group by dependency</span>
       </label>
+      <label class="field-label" for="ignore-dependency-bases">Ignore bases</label>
+      <input type="text" id="ignore-dependency-bases" class="field-input mono"
+             placeholder="develop,main,master" autocomplete="off"
+             title="Comma-separated base branches that never count as PR parents" />
+      <p class="hint">Bases listed here are never treated as dependency parents (e.g. develop→QA sync PRs).</p>
       <label class="row">
         <input type="checkbox" id="filter-drafts-out" />
         <span>Filter drafts out</span>

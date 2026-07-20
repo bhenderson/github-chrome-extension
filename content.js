@@ -121,23 +121,38 @@ function showReviewers(pr, node) {
 
   switch (p.reviewDecision ?? PullRequestReviewDecision.NONE) {
     case PullRequestReviewDecision.CHANGES_REQUESTED: {
-      const reviewElements = createReviewElements(changesRequestedReviews);
-      if (reviewElements) {
-        node.append(reviewElements);
+      const crElements = createReviewElements(changesRequestedReviews);
+      if (crElements) {
+        node.append(crElements);
       }
-      if (!approvedReviews.length) break;
-
-      const span = document.createElement('span');
-      span.classList.add('ml-1');
-      span.setAttribute(REVIEW_UI_ATTR, '1');
-      span.innerText = ' • Approved ';
-      node.append(span);
+      if (approvedReviews.length) {
+        const span = document.createElement('span');
+        span.classList.add('ml-1');
+        span.setAttribute(REVIEW_UI_ATTR, '1');
+        span.innerText = ' • Approved';
+        node.append(span);
+        const approvedElements = createReviewElements(approvedReviews);
+        if (approvedElements) {
+          node.append(approvedElements);
+        }
+      }
+      break;
     }
-    // fall through
     case PullRequestReviewDecision.APPROVED: {
-      const reviewElements = createReviewElements(approvedReviews);
-      if (reviewElements) {
-        node.append(reviewElements);
+      const approvedElements = createReviewElements(approvedReviews);
+      if (approvedElements) {
+        node.append(approvedElements);
+      }
+      if (changesRequestedReviews.length) {
+        const span = document.createElement('span');
+        span.classList.add('ml-1');
+        span.setAttribute(REVIEW_UI_ATTR, '1');
+        span.innerText = ' • Changes requested';
+        node.append(span);
+        const crElements = createReviewElements(changesRequestedReviews);
+        if (crElements) {
+          node.append(crElements);
+        }
       }
       break;
     }
@@ -316,7 +331,8 @@ async function setDependencySort(settings, viewerLogin, pullRequests) {
     return;
   }
 
-  const tree = buildTree(pullRequests);
+  const ignoreBases = settings.ignoreDependencyBases;
+  const tree = buildTree(pullRequests, ignoreBases);
   const { byHead = {} } = tree;
   let sortIndex = 0;
 
@@ -365,7 +381,7 @@ async function setDependencySort(settings, viewerLogin, pullRequests) {
             fontWeight: '600',
             lineHeight: '1.25',
             verticalAlign: 'middle',
-            backgroundColor: getBaseBranchColor(byHead, pr),
+            backgroundColor: getBaseBranchColor(byHead, pr, ignoreBases),
           });
           statusSpan.prepend(depthLabel, ' ');
         }

@@ -6,6 +6,7 @@
 export interface ExtensionSettings {
   sortOldest: boolean;
   groupByDependency: boolean;
+  ignoreDependencyBases?: string;
   token?: string;
   filterDraftsOut: boolean;
   filterApprovedByMe: boolean;

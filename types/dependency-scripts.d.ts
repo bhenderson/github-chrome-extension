@@ -8,6 +8,7 @@ declare function buildTree(
     headRefName: string;
     baseRefName: string;
   }>,
+  ignoreBases?: string | string[],
 ): {
   pr?: { number: number; headRefName: string; baseRefName: string };
   children: unknown[];
@@ -26,6 +27,7 @@ declare function getBaseBranchColor(
     { pr?: { number: number; headRefName: string; baseRefName: string } }
   >,
   pr: { number: number; headRefName: string; baseRefName: string },
+  ignoreBases?: string | string[],
 ): string;
 
 declare function fetchOpenPullRequestsForRepo(
