@@ -620,8 +620,8 @@ async function renderJiraStatusBadges(settings, pullRequests) {
     const issueData = statusMap[jiraKey];
     if (!issueData) continue;
 
-    const details = el.querySelector('details');
-    if (!details) continue;
+    const container = el.querySelector('span.v-align-middle');
+    if (!container) continue;
 
     const badgeStyle = {
       display: 'inline-flex',
@@ -662,7 +662,7 @@ async function renderJiraStatusBadges(settings, pullRequests) {
     });
 
     link.append(keySpan, statusSpan);
-    details.insertAdjacentElement('afterend', link);
+    container.append(link);
   }
 }
 
