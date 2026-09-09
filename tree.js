@@ -1,3 +1,4 @@
+/// <reference path="./types/dependency-scripts.d.ts" />
 /**
  * @fileoverview Build a PR dependency tree from base/head ref names (matches another branch’s head).
  */
@@ -81,35 +82,6 @@ function getBaseBranch(byHead, pr, ignoreBases) {
 }
 
 /**
- * @typedef {Object} GraphContext
- * @property {number} stackTotal
- * @property {number} stackPosition
- * @property {number} rootPrNumber
- * @property {number} branchSubtreeSize
- * @property {number | null} branchIndex
- * @property {number | null} branchTotal
- * @property {boolean} isBranchStart
- */
-
-/**
- * @typedef {Object} GraphMeta
- * @property {number} depth
- * @property {number} branchCol
- * @property {boolean[]} ancestorContinues
- * @property {boolean} isLastChild
- * @property {boolean} hasChildren
- * @property {string} color
- * @property {number} stackTotal
- * @property {number} stackPosition
- * @property {number} rootPrNumber
- * @property {number} branchSubtreeSize
- * @property {number} childCount
- * @property {number | null} branchIndex
- * @property {number | null} branchTotal
- * @property {boolean} isBranchStart
- */
-
-/**
  * @param {TreeNode} node
  * @returns {number}
  */
@@ -170,33 +142,17 @@ function getBaseBranchLineColor(byHead, pr, ignoreBases) {
 /**
  * @param {TreeNode} node
  * @param {number} depth
- * @param {boolean[]} ancestorContinues
- * @param {boolean} isLastChild
- * @param {number} branchCol
  * @param {PRHeads} byHead
  * @param {string | string[] | undefined} ignoreBases
  * @param {GraphContext} graphContext
  * @returns {GraphMeta | null}
  */
-function computeGraphMeta(
-  node,
-  depth,
-  ancestorContinues,
-  isLastChild,
-  branchCol,
-  byHead,
-  ignoreBases,
-  graphContext,
-) {
+function computeGraphMeta(node, depth, byHead, ignoreBases, graphContext) {
   const { pr, children } = node;
   if (!pr) return null;
 
   return {
     depth,
-    branchCol,
-    ancestorContinues: [...ancestorContinues],
-    isLastChild,
-    hasChildren: children.length > 0,
     color: getBaseBranchLineColor(byHead, pr, ignoreBases),
     ...graphContext,
     childCount: children.length,

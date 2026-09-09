@@ -404,8 +404,6 @@ function setPRDefaultSort() {
  *   reviews: Array<{ author: string; state: string; html_url: string }>;
  *   reviewDecision?: string | null;
  * }>} pullRequests
- */
-/**
  * @returns {Promise<PendingGraphState | null>}
  */
 async function setDependencySort(settings, viewerLogin, pullRequests) {
@@ -476,21 +474,10 @@ async function setDependencySort(settings, viewerLogin, pullRequests) {
   /**
    * @param {*} node
    * @param {number} depth
-   * @param {boolean[]} ancestorContinues
-   * @param {boolean} isLastChild
-   * @param {number} branchCol
    * @param {number} parentChildCount
    * @param {number} siblingIndex
    */
-  function traverseTree(
-    node,
-    depth = 0,
-    ancestorContinues = [],
-    isLastChild = true,
-    branchCol = 0,
-    parentChildCount = 0,
-    siblingIndex = 0,
-  ) {
+  function traverseTree(node, depth = 0, parentChildCount = 0, siblingIndex = 0) {
     const { pr, children } = node;
     if (pr && elementByPRNumber[String(pr.number)]) {
       const el = elementByPRNumber[String(pr.number)];
@@ -502,69 +489,38 @@ async function setDependencySort(settings, viewerLogin, pullRequests) {
         child.remove();
       }
 
-      if (getStatusContainer(el)) {
-        if (isInChain) {
-          const rootPr = getBaseBranch(byHead, pr, ignoreBases);
-          const rootPrNumber = rootPr.number;
-          const stackTotal = stackTotalByRootPr.get(rootPrNumber) ?? countSubtree(node);
-          const stackPosition =
-            (stackPositionByRootPr.get(rootPrNumber) ?? 0) + 1;
-          stackPositionByRootPr.set(rootPrNumber, stackPosition);
+      if (isInChain) {
+        const rootPr = getBaseBranch(byHead, pr, ignoreBases);
+        const rootPrNumber = rootPr.number;
+        const stackTotal = stackTotalByRootPr.get(rootPrNumber) ?? countSubtree(node);
+        const stackPosition = (stackPositionByRootPr.get(rootPrNumber) ?? 0) + 1;
+        stackPositionByRootPr.set(rootPrNumber, stackPosition);
 
-          const branchIndex =
-            depth > 1 && parentChildCount > 1 ? siblingIndex : null;
-          const branchTotal =
-            depth > 1 && parentChildCount > 1 ? parentChildCount : null;
-          const isBranchStart = depth > 1 && siblingIndex > 0;
+        const branchIndex =
+          depth > 1 && parentChildCount > 1 ? siblingIndex : null;
+        const branchTotal =
+          depth > 1 && parentChildCount > 1 ? parentChildCount : null;
+        const isBranchStart = depth > 1 && siblingIndex > 0;
 
-          const graphMeta = computeGraphMeta(
-            node,
-            depth,
-            ancestorContinues,
-            isLastChild,
-            branchCol,
-            byHead,
-            ignoreBases,
-            {
-              stackTotal,
-              stackPosition,
-              rootPrNumber,
-              branchSubtreeSize: countSubtree(node),
-              branchIndex,
-              branchTotal,
-              isBranchStart,
-            },
-          );
-          if (graphMeta) {
-            graphMetaByPr.set(String(pr.number), graphMeta);
-          }
+        const graphMeta = computeGraphMeta(node, depth, byHead, ignoreBases, {
+          stackTotal,
+          stackPosition,
+          rootPrNumber,
+          branchSubtreeSize: countSubtree(node),
+          branchIndex,
+          branchTotal,
+          isBranchStart,
+        });
+        if (graphMeta) {
+          graphMetaByPr.set(String(pr.number), graphMeta);
         }
-
-        showReviewers(pr, el);
       }
-    }
 
-    /** @type {boolean[]} */
-    let childAncestorContinues = [...ancestorContinues];
-    if (depth >= 1) {
-      while (childAncestorContinues.length <= branchCol) {
-        childAncestorContinues.push(false);
-      }
-      childAncestorContinues[branchCol] = !isLastChild || children.length > 0;
+      showReviewers(pr, el);
     }
 
     for (let i = 0; i < children.length; i++) {
-      const childBranchCol =
-        i === 0 ? branchCol : Math.min(branchCol + 1, 1);
-      traverseTree(
-        children[i],
-        depth + 1,
-        childAncestorContinues,
-        i === children.length - 1,
-        childBranchCol,
-        children.length,
-        i,
-      );
+      traverseTree(children[i], depth + 1, children.length, i);
     }
   }
 

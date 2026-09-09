@@ -5,7 +5,7 @@ A Manifest V3 Chrome extension for [github.com](https://github.com): tools for t
 ## Features
 
 - **Sort oldest** — Merges a fixed `q` bundle (`is:pr is:open sort:created-asc`) so the list loads oldest-first.
-- **Group by dependency** — With a **GitHub token**, uses GraphQL to reorder rows by PR chain and show depth badges and reviewer lines.
+- **Group by dependency** — With a **GitHub token**, uses GraphQL to reorder rows by PR chain and show depth numbers in a colored gutter plus reviewer lines.
 - **Filter drafts out** — Adds `draft:false` to `q`.
 - **Only my PRs / Not my PRs** — Adds `author:<you>` or `-author:<you>` using the logged-in user from the page (`meta[name="user-login"]`).
 - **Filter approved by me / Filter not approved by me** — With a **token**, hides rows based on whether your latest review state is approved (uses the same GraphQL PR data as dependency mode).

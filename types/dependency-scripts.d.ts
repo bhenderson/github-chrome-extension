@@ -33,10 +33,6 @@ interface GraphContext {
 
 interface GraphMeta {
   depth: number;
-  branchCol: number;
-  ancestorContinues: boolean[];
-  isLastChild: boolean;
-  hasChildren: boolean;
   color: string;
   stackTotal: number;
   stackPosition: number;
@@ -79,9 +75,6 @@ declare function computeGraphMeta(
     children: unknown[];
   },
   depth: number,
-  ancestorContinues: boolean[],
-  isLastChild: boolean,
-  branchCol: number,
   byHead: Record<
     string,
     { pr?: { number: number; headRefName: string; baseRefName: string } }
