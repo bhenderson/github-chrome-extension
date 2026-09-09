@@ -30,9 +30,12 @@
         "settings.js",
         "github-query-options.js",
         "tree.js",
+        "pulls-list-dom.js",
+        "graph-svg.js",
         "github-prs.js",
         "content.js"
       ],
+      "css": ["content-graph.css"],
       "run_at": "document_start"
     }
   ]

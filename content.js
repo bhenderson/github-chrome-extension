@@ -6,6 +6,8 @@
 /// <reference path="./types/github-extension-global.d.ts" />
 /// <reference path="./tree.js" />
 /// <reference path="./github-prs.js" />
+/// <reference path="./pulls-list-dom.js" />
+/// <reference path="./graph-svg.js" />
 
 const _ext = /** @type {import('./types/github-extension-global').GithubExtensionGlobal | undefined} */ (
   /** @type {any} */ (globalThis).__githubExtension
@@ -26,6 +28,12 @@ const REVIEW_UI_ATTR = 'data-gce-review';
 
 /** Marks extension-injected Jira badges for cleanup before re-render. */
 const JIRA_UI_ATTR = 'data-gce-jira';
+
+/** Marks extension-injected dependency graph gutter on a row. */
+const GRAPH_ATTR = 'data-gce-graph';
+
+const GRAPH_GUTTER_CLASS = 'gce-graph-gutter';
+const DEP_LIST_CLASS = 'gce-dep-list';
 
 const JiraStatusCategoryColor = /** @type {const} */ ({
   new: '6b778c',
@@ -93,11 +101,14 @@ function createReviewElements(reviews) {
 }
 
 /**
- * Appends approved / changes-requested reviewer names next to the PR meta line (see main worktree).
+ * Appends approved / changes-requested reviewer names next to the PR review label.
  * @param {Object} pr
- * @param {HTMLElement} node
+ * @param {HTMLElement} rowEl
  */
-function showReviewers(pr, node) {
+function showReviewers(pr, rowEl) {
+  const node = getReviewerContainer(rowEl);
+  if (!node) return;
+
   const p = /** @type {{
     reviews?: Array<{ author: string; state: string; html_url: string }>;
     reviewDecision?: string | null;
@@ -115,9 +126,6 @@ function showReviewers(pr, node) {
     (/** @type {{ author: string; state: string; html_url: string }} */ review) =>
       review.state === PullRequestReviewState.APPROVED,
   );
-  const lastChild = node.children[node.children.length - 1];
-
-  if (!lastChild) return;
 
   switch (p.reviewDecision ?? PullRequestReviewDecision.NONE) {
     case PullRequestReviewDecision.CHANGES_REQUESTED: {
@@ -259,21 +267,121 @@ function applyUrlForSettings(settings, options = {}) {
 }
 
 /**
- * @returns {{ container?: HTMLDivElement, prElements?: HTMLElement[] }}
+ * @returns {{ container?: HTMLElement, prElements?: HTMLElement[] }}
  */
 function getPRElements() {
-  const container = /** @type {HTMLDivElement | null} */ (
-    document.querySelector('.js-navigation-container')
-  );
+  const container = getPullsListContainer();
   if (!container) return {};
 
-  const prElements = /** @type {HTMLElement[]} */ (
-    Array.from(container.children).filter(
-      (el) => /** @type {HTMLElement} */(el).id?.startsWith('issue_'),
-    )
-  );
+  const prElements = getPullsListRows();
+  if (!prElements.length) return {};
 
   return { container, prElements };
+}
+
+/**
+ * @param {HTMLElement} el
+ */
+function clearGraphFromRow(el) {
+  el.classList.remove('gce-dep-chain');
+  el.removeAttribute(GRAPH_ATTR);
+  el.removeAttribute('data-gce-layout');
+}
+
+/**
+ * @param {HTMLElement} container
+ */
+function clearGraphGutters(container) {
+  for (const gutter of container.querySelectorAll(`.${GRAPH_GUTTER_CLASS}`)) {
+    gutter.remove();
+  }
+}
+
+/**
+ * @param {HTMLElement[]} prElements
+ * @param {HTMLElement} [container]
+ */
+function clearGraphFromRows(prElements, container) {
+  for (const el of prElements) {
+    clearGraphFromRow(el);
+  }
+  if (container) {
+    clearGraphGutters(container);
+    clearGraphListGutter(container);
+  }
+}
+
+/**
+ * @param {HTMLElement} container
+ */
+function clearGraphListGutter(container) {
+  container.classList.remove(DEP_LIST_CLASS);
+  container.style.removeProperty('--gce-list-gutter');
+}
+
+/**
+ * @param {HTMLElement} container
+ * @param {'legacy' | 'listview'} layout
+ * @param {number} gutterWidthPx
+ */
+function applyGraphListGutter(container, layout, gutterWidthPx) {
+  const gap = layout === 'listview' ? 6 : 4;
+  container.classList.add(DEP_LIST_CLASS);
+  container.style.setProperty('--gce-list-gutter', `${gutterWidthPx + gap}px`);
+}
+
+/**
+ * @typedef {Object} PendingGraphState
+ * @property {HTMLElement} container
+ * @property {'legacy' | 'listview'} layout
+ * @property {number} gutterWidthPx
+ * @property {Map<string, GraphMeta>} graphMetaByPr
+ * @property {Record<string, HTMLElement>} elementByPRNumber
+ */
+
+/**
+ * Gutter is a child of the list container at left:0 (inside ul padding), not inside the row,
+ * so ancestor overflow on ListView rows does not clip it.
+ * @param {HTMLElement} container
+ * @param {HTMLElement} row
+ * @param {GraphMeta} graphMeta
+ * @param {'legacy' | 'listview'} layout
+ * @param {number} gutterWidthPx
+ */
+function applyGraphToRow(container, row, graphMeta, layout, gutterWidthPx) {
+  const label = buildGraphHoverLabel(graphMeta);
+  const gutter = document.createElement('img');
+  gutter.className = GRAPH_GUTTER_CLASS;
+  gutter.setAttribute(GRAPH_ATTR, '1');
+  gutter.setAttribute('aria-label', label);
+  gutter.title = label;
+  gutter.alt = '';
+  gutter.src = buildRowGraphSvg(graphMeta, gutterWidthPx);
+  gutter.style.width = `${gutterWidthPx}px`;
+  gutter.style.top = `${row.offsetTop}px`;
+  gutter.style.height = `${row.offsetHeight}px`;
+  container.append(gutter);
+
+  row.setAttribute(GRAPH_ATTR, '1');
+  row.classList.add('gce-dep-chain');
+  row.setAttribute('data-gce-layout', layout);
+}
+
+/**
+ * @param {PendingGraphState} state
+ */
+function applyGraphsToList(state) {
+  const { container, layout, gutterWidthPx, graphMetaByPr, elementByPRNumber } =
+    state;
+  if (!gutterWidthPx || graphMetaByPr.size === 0) return;
+
+  applyGraphListGutter(container, layout, gutterWidthPx);
+  for (const [prNumber, graphMeta] of graphMetaByPr) {
+    const row = elementByPRNumber[prNumber];
+    if (row) {
+      applyGraphToRow(container, row, graphMeta, layout, gutterWidthPx);
+    }
+  }
 }
 
 function setPRDefaultSort() {
@@ -297,21 +405,30 @@ function setPRDefaultSort() {
  *   reviewDecision?: string | null;
  * }>} pullRequests
  */
+/**
+ * @returns {Promise<PendingGraphState | null>}
+ */
 async function setDependencySort(settings, viewerLogin, pullRequests) {
   const { container, prElements } = getPRElements();
-  if (!container || !prElements?.length) return;
+  if (!container || !prElements?.length) return null;
 
   const pathParts = window.location.pathname.split('/');
   const owner = pathParts[1];
   const repo = pathParts[2];
-  if (!owner || !repo) return;
+  if (!owner || !repo) return null;
 
   currentUser = viewerLogin;
+  const layout = detectPullsListLayout();
+  if (!layout) return null;
+
+  clearGraphFromRows(prElements, container);
 
   const elementByPRNumber = /** @type {Record<string, HTMLElement>} */ ({});
   for (const el of prElements) {
-    const prNumber = el.id.replace('issue_', '');
-    elementByPRNumber[prNumber] = el;
+    const prNumber = getPrNumberFromRow(el);
+    if (prNumber) {
+      elementByPRNumber[prNumber] = el;
+    }
   }
 
   const fallbackToDefaultOrder = () => {
@@ -322,25 +439,58 @@ async function setDependencySort(settings, viewerLogin, pullRequests) {
 
   if (!pullRequests.length) {
     fallbackToDefaultOrder();
-    return;
+    return null;
   }
 
   const hasMatchingPRs = pullRequests.some((pr) => elementByPRNumber[String(pr.number)]);
   if (!hasMatchingPRs) {
     fallbackToDefaultOrder();
-    return;
+    return null;
   }
 
   const ignoreBases = settings.ignoreDependencyBases;
   const tree = buildTree(pullRequests, ignoreBases);
   const { byHead = {} } = tree;
   let sortIndex = 0;
+  /** @type {Map<number, number>} */
+  const stackTotalByRootPr = new Map();
+  /** @type {Map<number, number>} */
+  const stackPositionByRootPr = new Map();
+  /** @type {Map<string, GraphMeta>} */
+  const graphMetaByPr = new Map();
 
   /**
    * @param {*} node
    * @param {number} depth
    */
-  function traverseTree(node, depth = 0) {
+  function indexChainRoots(node, depth = 0) {
+    if (depth === 1 && node.pr) {
+      stackTotalByRootPr.set(node.pr.number, countSubtree(node));
+    }
+    for (const child of node.children) {
+      indexChainRoots(child, depth + 1);
+    }
+  }
+  indexChainRoots(tree);
+
+  /**
+   * @param {*} node
+   * @param {number} depth
+   * @param {boolean[]} ancestorContinues
+   * @param {boolean} isLastChild
+   * @param {number} branchCol
+   * @param {number} parentChildCount
+   * @param {number} siblingIndex
+   */
+  function traverseTree(
+    node,
+    depth = 0,
+    ancestorContinues = [],
+    isLastChild = true,
+    branchCol = 0,
+    parentChildCount = 0,
+    siblingIndex = 0,
+  ) {
     const { pr, children } = node;
     if (pr && elementByPRNumber[String(pr.number)]) {
       const el = elementByPRNumber[String(pr.number)];
@@ -348,49 +498,73 @@ async function setDependencySort(settings, viewerLogin, pullRequests) {
 
       el.dataset[dependencySortKey] = String(sortIndex++);
 
-      const openedBySpan = el.querySelector('.opened-by');
-      const statusSpan = openedBySpan?.parentElement;
+      for (const child of Array.from(el.querySelectorAll(`[${REVIEW_UI_ATTR}]`))) {
+        child.remove();
+      }
 
-      if (statusSpan) {
-        for (const el of Array.from(
-          statusSpan.querySelectorAll(`[${REVIEW_UI_ATTR}]`),
-        )) {
-          el.remove();
-        }
-
-        for (const label of Array.from(
-          statusSpan.querySelectorAll('.base-branch-label'),
-        )) {
-          label.remove();
-        }
-
+      if (getStatusContainer(el)) {
         if (isInChain) {
-          const depthLabel = document.createElement('span');
-          depthLabel.classList.add('base-branch-label');
-          depthLabel.textContent = String(depth);
-          Object.assign(depthLabel.style, {
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxSizing: 'border-box',
-            minWidth: '1.75em',
-            padding: '2px 8px',
-            marginRight: '6px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            fontWeight: '600',
-            lineHeight: '1.25',
-            verticalAlign: 'middle',
-            backgroundColor: getBaseBranchColor(byHead, pr, ignoreBases),
-          });
-          statusSpan.prepend(depthLabel, ' ');
+          const rootPr = getBaseBranch(byHead, pr, ignoreBases);
+          const rootPrNumber = rootPr.number;
+          const stackTotal = stackTotalByRootPr.get(rootPrNumber) ?? countSubtree(node);
+          const stackPosition =
+            (stackPositionByRootPr.get(rootPrNumber) ?? 0) + 1;
+          stackPositionByRootPr.set(rootPrNumber, stackPosition);
+
+          const branchIndex =
+            depth > 1 && parentChildCount > 1 ? siblingIndex : null;
+          const branchTotal =
+            depth > 1 && parentChildCount > 1 ? parentChildCount : null;
+          const isBranchStart = depth > 1 && siblingIndex > 0;
+
+          const graphMeta = computeGraphMeta(
+            node,
+            depth,
+            ancestorContinues,
+            isLastChild,
+            branchCol,
+            byHead,
+            ignoreBases,
+            {
+              stackTotal,
+              stackPosition,
+              rootPrNumber,
+              branchSubtreeSize: countSubtree(node),
+              branchIndex,
+              branchTotal,
+              isBranchStart,
+            },
+          );
+          if (graphMeta) {
+            graphMetaByPr.set(String(pr.number), graphMeta);
+          }
         }
 
-        showReviewers(pr, statusSpan);
+        showReviewers(pr, el);
       }
     }
-    for (const child of children) {
-      traverseTree(child, depth + 1);
+
+    /** @type {boolean[]} */
+    let childAncestorContinues = [...ancestorContinues];
+    if (depth >= 1) {
+      while (childAncestorContinues.length <= branchCol) {
+        childAncestorContinues.push(false);
+      }
+      childAncestorContinues[branchCol] = !isLastChild || children.length > 0;
+    }
+
+    for (let i = 0; i < children.length; i++) {
+      const childBranchCol =
+        i === 0 ? branchCol : Math.min(branchCol + 1, 1);
+      traverseTree(
+        children[i],
+        depth + 1,
+        childAncestorContinues,
+        i === children.length - 1,
+        childBranchCol,
+        children.length,
+        i,
+      );
     }
   }
 
@@ -405,6 +579,16 @@ async function setDependencySort(settings, viewerLogin, pullRequests) {
       el.dataset[dependencySortKey] = String(maxIdx++);
     }
   }
+
+  if (graphMetaByPr.size === 0) return null;
+
+  return {
+    container,
+    layout,
+    gutterWidthPx: computeGutterWidth(),
+    graphMetaByPr,
+    elementByPRNumber,
+  };
 }
 
 /**
@@ -418,7 +602,8 @@ async function setDependencySort(settings, viewerLogin, pullRequests) {
 function applyApprovalDatasetsToRows(prElements, pullRequests, viewerLogin) {
   const byNum = new Map(pullRequests.map((pr) => [String(pr.number), pr]));
   for (const el of prElements) {
-    const num = el.id.replace('issue_', '');
+    const num = getPrNumberFromRow(el);
+    if (!num) continue;
     const pr = byNum.get(num);
     if (pr) {
       const approved = pr.reviews.some(
@@ -492,8 +677,9 @@ async function refreshPullsListDependencySort(settings) {
   const needsFetch = needsGraph || (needsJira && !!settings.token);
 
   if (!needsFetch) {
-    const { prElements } = getPRElements();
+    const { container, prElements } = getPRElements();
     if (prElements?.length) {
+      clearGraphFromRows(prElements, container);
       for (const el of prElements) {
         delete el.dataset[approvedByYouKey];
         el.hidden = false;
@@ -517,8 +703,15 @@ async function refreshPullsListDependencySort(settings) {
     settings.token ?? '',
   );
 
+  /** @type {PendingGraphState | null} */
+  let graphState = null;
   if (settings.groupByDependency) {
-    await setDependencySort(settings, viewerLogin, pullRequests);
+    graphState = await setDependencySort(settings, viewerLogin, pullRequests);
+  } else {
+    const { container, prElements } = getPRElements();
+    if (prElements?.length) {
+      clearGraphFromRows(prElements, container);
+    }
   }
 
   const { prElements } = getPRElements();
@@ -527,6 +720,14 @@ async function refreshPullsListDependencySort(settings) {
   }
 
   sortByKey(settings);
+
+  if (graphState) {
+    const { container } = getPRElements();
+    if (container) {
+      clearGraphGutters(container);
+      applyGraphsToList({ ...graphState, container });
+    }
+  }
 
   if (needsJira && pullRequests.length) {
     await renderJiraStatusBadges(settings, pullRequests);
@@ -612,15 +813,19 @@ async function renderJiraStatusBadges(settings, pullRequests) {
   if (!response.success) return;
   const statusMap = response.data;
 
+  const layout = detectPullsListLayout();
+
   for (const el of prElements) {
-    const prNumber = el.id.replace('issue_', '');
+    const prNumber = getPrNumberFromRow(el);
+    if (!prNumber) continue;
+
     const jiraKey = keyByPrNumber.get(prNumber);
     if (!jiraKey) continue;
 
     const issueData = statusMap[jiraKey];
     if (!issueData) continue;
 
-    const container = el.querySelector('span.v-align-middle');
+    const container = getJiraBadgeContainer(el);
     if (!container) continue;
 
     const badgeStyle = {
@@ -662,7 +867,15 @@ async function renderJiraStatusBadges(settings, pullRequests) {
     });
 
     link.append(keySpan, statusSpan);
-    container.append(link);
+
+    if (layout === 'listview') {
+      const sep = document.createElement('span');
+      sep.setAttribute(JIRA_UI_ATTR, '1');
+      sep.textContent = ' · ';
+      container.append(sep, link);
+    } else {
+      container.append(link);
+    }
   }
 }
 

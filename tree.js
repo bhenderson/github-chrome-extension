@@ -81,14 +81,124 @@ function getBaseBranch(byHead, pr, ignoreBases) {
 }
 
 /**
+ * @typedef {Object} GraphContext
+ * @property {number} stackTotal
+ * @property {number} stackPosition
+ * @property {number} rootPrNumber
+ * @property {number} branchSubtreeSize
+ * @property {number | null} branchIndex
+ * @property {number | null} branchTotal
+ * @property {boolean} isBranchStart
+ */
+
+/**
+ * @typedef {Object} GraphMeta
+ * @property {number} depth
+ * @property {number} branchCol
+ * @property {boolean[]} ancestorContinues
+ * @property {boolean} isLastChild
+ * @property {boolean} hasChildren
+ * @property {string} color
+ * @property {number} stackTotal
+ * @property {number} stackPosition
+ * @property {number} rootPrNumber
+ * @property {number} branchSubtreeSize
+ * @property {number} childCount
+ * @property {number | null} branchIndex
+ * @property {number | null} branchTotal
+ * @property {boolean} isBranchStart
+ */
+
+/**
+ * @param {TreeNode} node
+ * @returns {number}
+ */
+function countSubtree(node) {
+  let count = node.pr ? 1 : 0;
+  for (const child of node.children) {
+    count += countSubtree(child);
+  }
+  return count;
+}
+
+/**
+ * @param {GraphMeta} meta
+ * @returns {string}
+ */
+function buildGraphHoverLabel(meta) {
+  const {
+    rootPrNumber,
+    stackTotal,
+    stackPosition,
+    childCount,
+    branchIndex,
+    branchTotal,
+    branchSubtreeSize,
+    isBranchStart,
+  } = meta;
+  const root = `root #${rootPrNumber}`;
+
+  if (childCount > 1) {
+    const prWord = stackTotal === 1 ? 'PR' : 'PRs';
+    return `${childCount} branches · ${stackTotal} ${prWord} total · ${root}`;
+  }
+  if (
+    isBranchStart &&
+    branchIndex != null &&
+    branchTotal != null &&
+    branchIndex > 0
+  ) {
+    const branchNum = branchIndex + 1;
+    const prWord = branchSubtreeSize === 1 ? 'PR' : 'PRs';
+    return `Branch ${branchNum} of ${branchTotal} · ${branchSubtreeSize} ${prWord} in branch · ${root}`;
+  }
+  return `Stack of ${stackTotal} · position ${stackPosition} · ${root}`;
+}
+
+/**
  * @param {PRHeads} byHead
  * @param {PullRequestNode} pr
  * @param {string | string[] | undefined} [ignoreBases]
  * @returns {string}
  */
-function getBaseBranchColor(byHead, pr, ignoreBases) {
+function getBaseBranchLineColor(byHead, pr, ignoreBases) {
   const baseBranch = getBaseBranch(byHead, pr, ignoreBases);
-
   const hue = (Number(baseBranch.number) * 137.508) % 360;
-  return `hsl(${hue}, 70%, 85%)`;
+  return `hsl(${hue}, 80%, 50%)`;
+}
+
+/**
+ * @param {TreeNode} node
+ * @param {number} depth
+ * @param {boolean[]} ancestorContinues
+ * @param {boolean} isLastChild
+ * @param {number} branchCol
+ * @param {PRHeads} byHead
+ * @param {string | string[] | undefined} ignoreBases
+ * @param {GraphContext} graphContext
+ * @returns {GraphMeta | null}
+ */
+function computeGraphMeta(
+  node,
+  depth,
+  ancestorContinues,
+  isLastChild,
+  branchCol,
+  byHead,
+  ignoreBases,
+  graphContext,
+) {
+  const { pr, children } = node;
+  if (!pr) return null;
+
+  return {
+    depth,
+    branchCol,
+    ancestorContinues: [...ancestorContinues],
+    isLastChild,
+    hasChildren: children.length > 0,
+    color: getBaseBranchLineColor(byHead, pr, ignoreBases),
+    ...graphContext,
+    childCount: children.length,
+  };
 }

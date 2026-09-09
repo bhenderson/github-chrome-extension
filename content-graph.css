@@ -1,0 +1,22 @@
+/* Reserve left margin on the list; gutter imgs sit inside this padding. */
+ul.gce-dep-list,
+.js-navigation-container.gce-dep-list {
+  position: relative !important;
+  padding-left: var(--gce-list-gutter, 0) !important;
+}
+
+.gce-dep-list > .gce-graph-gutter {
+  position: absolute;
+  left: 0;
+  display: block;
+  object-fit: fill;
+  pointer-events: auto;
+  cursor: default;
+  z-index: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .gce-dep-list > .gce-graph-gutter {
+    opacity: 0.92;
+  }
+}
