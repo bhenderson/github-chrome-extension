@@ -5,8 +5,8 @@
 const STROKE_W = 2;
 const GUTTER_WIDTH = 18;
 const ROW_VIEW_H = 100;
-const TEXT_GAP = 9;
-const FONT_SIZE = 12;
+const TEXT_GAP = 10;
+const FONT_SIZE = 14;
 
 /**
  * @returns {number}
