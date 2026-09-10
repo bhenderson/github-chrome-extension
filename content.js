@@ -354,35 +354,18 @@ function applyGraphsToList(state) {
   applyGraphListGutter(container, layout, gutterWidthPx);
 
   /** @type {Array<{ row: HTMLElement; graphMeta: GraphMeta; label: string }>} */
-  const chainRows = [];
-  for (const row of getPullsListRows()) {
-    const prNumber = getPrNumberFromRow(row);
-    if (!prNumber || row.hidden) continue;
-    const graphMeta = graphMetaByPr.get(prNumber);
-    if (!graphMeta) continue;
-
-    row.setAttribute(GRAPH_ATTR, '1');
-    row.classList.add('gce-dep-chain');
-    chainRows.push({ row, graphMeta, label: buildGraphHoverLabel(graphMeta) });
+  const pending = [];
+  for (const [prNumber, graphMeta] of graphMetaByPr) {
+    const row = elementByPRNumber[prNumber];
+    if (row && !row.hidden) {
+      row.setAttribute(GRAPH_ATTR, '1');
+      row.classList.add('gce-dep-chain');
+      pending.push({ row, graphMeta, label: buildGraphHoverLabel(graphMeta) });
+    }
   }
 
-  for (let i = 0; i < chainRows.length; i++) {
-    const { row, graphMeta, label } = chainRows[i];
-    const prevMeta = chainRows[i - 1]?.graphMeta;
-    const nextMeta = chainRows[i + 1]?.graphMeta;
-    const sameStack = (/** @type {GraphMeta | undefined} */ a, /** @type {GraphMeta | undefined} */ b) =>
-      a != null && b != null && a.rootPrNumber === b.rootPrNumber;
-    const connectAbove =
-      sameStack(prevMeta, graphMeta) &&
-      prevMeta.stackPosition === graphMeta.stackPosition - 1;
-    const connectBelow =
-      sameStack(nextMeta, graphMeta) &&
-      nextMeta.stackPosition === graphMeta.stackPosition + 1;
-
-    const gutter = buildGraphGutterElement(graphMeta, {
-      connectAbove,
-      connectBelow,
-    });
+  for (const { row, graphMeta, label } of pending) {
+    const gutter = buildGraphGutterElement(graphMeta);
     gutter.setAttribute(GRAPH_ATTR, '1');
     gutter.setAttribute('aria-label', label);
     gutter.title = label;
@@ -485,44 +468,54 @@ async function setDependencySort(settings, viewerLogin, pullRequests) {
    */
   function traverseTree(node, depth = 0, parentChildCount = 0, siblingIndex = 0) {
     const { pr, children } = node;
-    if (pr && elementByPRNumber[String(pr.number)]) {
-      const el = elementByPRNumber[String(pr.number)];
+    if (pr) {
       const isInChain = children.length > 0 || depth > 1;
-
-      el.dataset[dependencySortKey] = String(sortIndex++);
-
-      for (const child of Array.from(el.querySelectorAll(`[${REVIEW_UI_ATTR}]`))) {
-        child.remove();
-      }
+      /** @type {number | undefined} */
+      let stackPosition;
+      /** @type {number | undefined} */
+      let stackTotal;
+      /** @type {number | undefined} */
+      let rootPrNumber;
 
       if (isInChain) {
         const rootPr = getBaseBranch(byHead, pr, ignoreBases);
-        const rootPrNumber = rootPr.number;
-        const stackTotal = stackTotalByRootPr.get(rootPrNumber) ?? countSubtree(node);
-        const stackPosition = (stackPositionByRootPr.get(rootPrNumber) ?? 0) + 1;
+        rootPrNumber = rootPr.number;
+        stackTotal = stackTotalByRootPr.get(rootPrNumber) ?? countSubtree(node);
+        stackPosition = (stackPositionByRootPr.get(rootPrNumber) ?? 0) + 1;
         stackPositionByRootPr.set(rootPrNumber, stackPosition);
-
-        const branchIndex =
-          depth > 1 && parentChildCount > 1 ? siblingIndex : null;
-        const branchTotal =
-          depth > 1 && parentChildCount > 1 ? parentChildCount : null;
-        const isBranchStart = depth > 1 && siblingIndex > 0;
-
-        const graphMeta = computeGraphMeta(node, depth, byHead, ignoreBases, {
-          stackTotal,
-          stackPosition,
-          rootPrNumber,
-          branchSubtreeSize: countSubtree(node),
-          branchIndex,
-          branchTotal,
-          isBranchStart,
-        });
-        if (graphMeta) {
-          graphMetaByPr.set(String(pr.number), graphMeta);
-        }
       }
 
-      showReviewers(pr, el);
+      const el = elementByPRNumber[String(pr.number)];
+      if (el) {
+        el.dataset[dependencySortKey] = String(sortIndex++);
+
+        for (const child of Array.from(el.querySelectorAll(`[${REVIEW_UI_ATTR}]`))) {
+          child.remove();
+        }
+
+        if (isInChain && stackPosition != null && stackTotal != null && rootPrNumber != null) {
+          const branchIndex =
+            depth > 1 && parentChildCount > 1 ? siblingIndex : null;
+          const branchTotal =
+            depth > 1 && parentChildCount > 1 ? parentChildCount : null;
+          const isBranchStart = depth > 1 && siblingIndex > 0;
+
+          const graphMeta = computeGraphMeta(node, depth, byHead, ignoreBases, {
+            stackTotal,
+            stackPosition,
+            rootPrNumber,
+            branchSubtreeSize: countSubtree(node),
+            branchIndex,
+            branchTotal,
+            isBranchStart,
+          });
+          if (graphMeta) {
+            graphMetaByPr.set(String(pr.number), graphMeta);
+          }
+        }
+
+        showReviewers(pr, el);
+      }
     }
 
     for (let i = 0; i < children.length; i++) {

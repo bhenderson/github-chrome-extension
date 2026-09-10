@@ -12,27 +12,32 @@ function computeGutterWidth() {
 }
 
 /**
+ * @returns {HTMLDivElement}
+ */
+function createGraphSegment() {
+  const segment = document.createElement('div');
+  segment.className = 'gce-graph-segment';
+  const line = document.createElement('div');
+  line.className = 'gce-graph-line';
+  segment.append(line);
+  return segment;
+}
+
+/**
  * @param {GraphMeta} meta
- * @param {{ connectAbove?: boolean; connectBelow?: boolean }} [connections]
  * @returns {HTMLElement}
  */
-function buildGraphGutterElement(meta, connections = {}) {
-  const { depth, stackTotal, color } = meta;
-  const { connectAbove = false, connectBelow = false } = connections;
+function buildGraphGutterElement(meta) {
+  const { depth, stackPosition, stackTotal, color } = meta;
 
   const gutter = document.createElement('div');
   gutter.className = 'gce-graph-gutter';
   gutter.style.setProperty('--gce-graph-color', color);
 
   if (stackTotal > 1) {
-    const upper = document.createElement('div');
-    upper.className = 'gce-graph-segment';
-    if (connectAbove) {
-      const line = document.createElement('div');
-      line.className = 'gce-graph-line';
-      upper.append(line);
-    }
-    gutter.append(upper);
+    if (stackPosition <= 1) gutter.classList.add('gce-graph-gutter--stack-start');
+    if (stackPosition >= stackTotal) gutter.classList.add('gce-graph-gutter--stack-end');
+    gutter.append(createGraphSegment());
   }
 
   const num = document.createElement('span');
@@ -41,14 +46,7 @@ function buildGraphGutterElement(meta, connections = {}) {
   gutter.append(num);
 
   if (stackTotal > 1) {
-    const lower = document.createElement('div');
-    lower.className = 'gce-graph-segment';
-    if (connectBelow) {
-      const line = document.createElement('div');
-      line.className = 'gce-graph-line';
-      lower.append(line);
-    }
-    gutter.append(lower);
+    gutter.append(createGraphSegment());
   }
 
   return gutter;

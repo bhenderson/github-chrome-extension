@@ -46,6 +46,11 @@ ul.gce-dep-list > li,
   background-color: var(--gce-graph-color);
 }
 
+.gce-graph-gutter--stack-start > .gce-graph-segment:first-child .gce-graph-line,
+.gce-graph-gutter--stack-end > .gce-graph-segment:last-child .gce-graph-line {
+  visibility: hidden;
+}
+
 .gce-graph-depth {
   flex-shrink: 0;
   font-size: 14px;
