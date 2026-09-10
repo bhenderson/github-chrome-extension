@@ -65,3 +65,38 @@ ul.gce-dep-list > li,
     opacity: 0.92;
   }
 }
+
+/*
+ * Inline Jira badge in the PR description line. Inherit typography from the
+ * description container so the badge scales with GitHub's layout instead of
+ * fighting it with fixed px; em padding grows horizontally only.
+ */
+.gce-jira-badge {
+  display: inline;
+  margin-left: 0.25em;
+  border-radius: 0.2em;
+  font: inherit;
+  font-weight: 500;
+  line-height: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+.gce-jira-badge__key,
+.gce-jira-badge__status {
+  display: inline-block;
+  padding: 0 0.35em;
+  color: #fff;
+  font-size: inherit;
+  line-height: inherit;
+  vertical-align: baseline;
+}
+
+.gce-jira-badge__key {
+  background-color: #555;
+}
+
+.gce-jira-badge__sep {
+  vertical-align: baseline;
+}

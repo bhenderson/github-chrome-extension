@@ -742,36 +742,15 @@ function buildJiraBadgeElement(jiraKey, issueData) {
   link.setAttribute(JIRA_UI_ATTR, '1');
   // Class (not just data-gce-jira) so badges are easy to find in the page inspector.
   link.classList.add(JIRA_BADGE_CLASS);
-  Object.assign(link.style, {
-    display: 'inline-flex',
-    alignItems: 'center',
-    marginLeft: '8px',
-    marginRight: '6px',
-    verticalAlign: 'middle',
-    borderRadius: '3px',
-    overflow: 'hidden',
-    fontSize: '11px',
-    fontFamily: 'Verdana,Geneva,DejaVu Sans,sans-serif',
-    fontWeight: 'normal',
-    lineHeight: '1',
-    textDecoration: 'none',
-  });
 
   const keySpan = document.createElement('span');
+  keySpan.className = 'gce-jira-badge__key';
   keySpan.textContent = jiraKey;
-  Object.assign(keySpan.style, {
-    padding: '3px 6px',
-    backgroundColor: '#555',
-    color: '#fff',
-  });
 
   const statusSpan = document.createElement('span');
+  statusSpan.className = 'gce-jira-badge__status';
   statusSpan.textContent = issueData.statusName;
-  Object.assign(statusSpan.style, {
-    padding: '3px 6px',
-    backgroundColor: jiraStatusColor(issueData.statusCategoryKey),
-    color: '#fff',
-  });
+  statusSpan.style.backgroundColor = jiraStatusColor(issueData.statusCategoryKey);
 
   link.append(keySpan, statusSpan);
   return link;
@@ -845,6 +824,7 @@ async function renderJiraStatusBadges(settings, pullRequests) {
 
     if (layout === 'listview') {
       const sep = document.createElement('span');
+      sep.className = 'gce-jira-badge__sep';
       sep.setAttribute(JIRA_UI_ATTR, '1');
       sep.textContent = ' · ';
       container.append(sep, link);
