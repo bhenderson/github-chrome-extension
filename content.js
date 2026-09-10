@@ -285,7 +285,6 @@ function getPRElements() {
 function clearGraphFromRow(el) {
   el.classList.remove('gce-dep-chain');
   el.removeAttribute(GRAPH_ATTR);
-  el.removeAttribute('data-gce-layout');
   for (const gutter of el.querySelectorAll(`.${GRAPH_GUTTER_CLASS}`)) {
     gutter.remove();
   }
@@ -361,7 +360,6 @@ function applyGraphsToList(state) {
     if (row && !row.hidden) {
       row.setAttribute(GRAPH_ATTR, '1');
       row.classList.add('gce-dep-chain');
-      row.setAttribute('data-gce-layout', layout);
       pending.push({ row, graphMeta, label: buildGraphHoverLabel(graphMeta) });
     }
   }
@@ -614,14 +612,14 @@ function sortByKey(settings) {
 async function refreshPullsListDependencySort(settings) {
   setPRDefaultSort();
 
-  const needsGraph =
+  const needsGraphqlFetch =
     !!settings.token &&
     (settings.groupByDependency ||
       settings.filterApprovedByMe ||
       settings.filterNotApprovedByMe);
 
   const needsJira = isJiraConfigured(settings);
-  const needsFetch = needsGraph || (needsJira && !!settings.token);
+  const needsFetch = needsGraphqlFetch || (needsJira && !!settings.token);
 
   if (!needsFetch) {
     const { container, prElements } = getPRElements();

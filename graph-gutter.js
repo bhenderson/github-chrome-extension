@@ -24,7 +24,7 @@ function buildGraphGutterElement(meta) {
 
   if (stackTotal > 1) {
     const upper = document.createElement('div');
-    upper.className = 'gce-graph-segment gce-graph-segment--upper';
+    upper.className = 'gce-graph-segment';
     if (stackPosition > 1) {
       const line = document.createElement('div');
       line.className = 'gce-graph-line';
@@ -40,7 +40,7 @@ function buildGraphGutterElement(meta) {
 
   if (stackTotal > 1) {
     const lower = document.createElement('div');
-    lower.className = 'gce-graph-segment gce-graph-segment--lower';
+    lower.className = 'gce-graph-segment';
     if (stackPosition < stackTotal) {
       const line = document.createElement('div');
       line.className = 'gce-graph-line';
