@@ -38,12 +38,6 @@ const GRAPH_ATTR = 'data-gce-graph';
 const GRAPH_GUTTER_CLASS = 'gce-graph-gutter';
 const DEP_LIST_CLASS = 'gce-dep-list';
 
-const JiraStatusCategoryColor = /** @type {const} */ ({
-  new: '6b778c',
-  indeterminate: '0052cc',
-  done: '36b37e',
-});
-
 const PullRequestReviewState = /** @type {const} */ ({
   APPROVED: 'APPROVED',
   CHANGES_REQUESTED: 'CHANGES_REQUESTED',
@@ -696,8 +690,11 @@ async function refreshPullsListDependencySort(settings) {
  * @param {string} statusCategoryKey
  * @returns {string}
  */
-function jiraStatusColor(statusCategoryKey) {
-  return `#${JiraStatusCategoryColor[/** @type {keyof typeof JiraStatusCategoryColor} */ (statusCategoryKey)] ?? JiraStatusCategoryColor.indeterminate}`;
+function jiraStatusCategoryClass(statusCategoryKey) {
+  if (statusCategoryKey === 'new' || statusCategoryKey === 'done') {
+    return `gce-jira-badge__status--${statusCategoryKey}`;
+  }
+  return 'gce-jira-badge__status--indeterminate';
 }
 
 /**
@@ -748,9 +745,8 @@ function buildJiraBadgeElement(jiraKey, issueData) {
   keySpan.textContent = jiraKey;
 
   const statusSpan = document.createElement('span');
-  statusSpan.className = 'gce-jira-badge__status';
+  statusSpan.className = `gce-jira-badge__status ${jiraStatusCategoryClass(issueData.statusCategoryKey)}`;
   statusSpan.textContent = issueData.statusName;
-  statusSpan.style.backgroundColor = jiraStatusColor(issueData.statusCategoryKey);
 
   link.append(keySpan, statusSpan);
   return link;

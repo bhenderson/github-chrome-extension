@@ -97,6 +97,19 @@ ul.gce-dep-list > li,
   background-color: #555;
 }
 
+/* Jira statusCategory.key values from the REST API */
+.gce-jira-badge__status--indeterminate {
+  background-color: #0052cc;
+}
+
+.gce-jira-badge__status--new {
+  background-color: #6b778c;
+}
+
+.gce-jira-badge__status--done {
+  background-color: #36b37e;
+}
+
 .gce-jira-badge__sep {
   vertical-align: baseline;
 }
