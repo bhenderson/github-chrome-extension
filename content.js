@@ -354,18 +354,35 @@ function applyGraphsToList(state) {
   applyGraphListGutter(container, layout, gutterWidthPx);
 
   /** @type {Array<{ row: HTMLElement; graphMeta: GraphMeta; label: string }>} */
-  const pending = [];
-  for (const [prNumber, graphMeta] of graphMetaByPr) {
-    const row = elementByPRNumber[prNumber];
-    if (row && !row.hidden) {
-      row.setAttribute(GRAPH_ATTR, '1');
-      row.classList.add('gce-dep-chain');
-      pending.push({ row, graphMeta, label: buildGraphHoverLabel(graphMeta) });
-    }
+  const chainRows = [];
+  for (const row of getPullsListRows()) {
+    const prNumber = getPrNumberFromRow(row);
+    if (!prNumber || row.hidden) continue;
+    const graphMeta = graphMetaByPr.get(prNumber);
+    if (!graphMeta) continue;
+
+    row.setAttribute(GRAPH_ATTR, '1');
+    row.classList.add('gce-dep-chain');
+    chainRows.push({ row, graphMeta, label: buildGraphHoverLabel(graphMeta) });
   }
 
-  for (const { row, graphMeta, label } of pending) {
-    const gutter = buildGraphGutterElement(graphMeta);
+  for (let i = 0; i < chainRows.length; i++) {
+    const { row, graphMeta, label } = chainRows[i];
+    const prevMeta = chainRows[i - 1]?.graphMeta;
+    const nextMeta = chainRows[i + 1]?.graphMeta;
+    const sameStack = (/** @type {GraphMeta | undefined} */ a, /** @type {GraphMeta | undefined} */ b) =>
+      a != null && b != null && a.rootPrNumber === b.rootPrNumber;
+    const connectAbove =
+      sameStack(prevMeta, graphMeta) &&
+      prevMeta.stackPosition === graphMeta.stackPosition - 1;
+    const connectBelow =
+      sameStack(nextMeta, graphMeta) &&
+      nextMeta.stackPosition === graphMeta.stackPosition + 1;
+
+    const gutter = buildGraphGutterElement(graphMeta, {
+      connectAbove,
+      connectBelow,
+    });
     gutter.setAttribute(GRAPH_ATTR, '1');
     gutter.setAttribute('aria-label', label);
     gutter.title = label;

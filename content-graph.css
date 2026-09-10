@@ -5,11 +5,12 @@ ul.gce-dep-list,
 }
 
 /*
- * Pull chain rows into the list padding, then pad content back so text aligns
- * with non-chain rows. Gutter stays at left:0 inside the row (ListView's
- * overflow:hidden container clips anything positioned outside the li).
+ * Pull every row into the list padding so row borders span the gutter zone.
+ * Chain rows prepend a gutter at left:0 (ListView's overflow:hidden container
+ * clips anything positioned outside the li).
  */
-.gce-dep-chain {
+ul.gce-dep-list > li,
+.js-navigation-container.gce-dep-list > [id^='issue_'] {
   position: relative !important;
   margin-left: calc(-1 * var(--gce-list-gutter, 0px)) !important;
   padding-left: var(--gce-list-gutter, 0px) !important;

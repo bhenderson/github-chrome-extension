@@ -99,7 +99,10 @@ declare function getJiraBadgeContainer(el: HTMLElement): HTMLElement | null;
 
 declare function computeGutterWidth(): number;
 
-declare function buildGraphGutterElement(meta: GraphMeta): HTMLElement;
+declare function buildGraphGutterElement(
+  meta: GraphMeta,
+  connections?: { connectAbove?: boolean; connectBelow?: boolean },
+): HTMLElement;
 
 declare function fetchOpenPullRequestsForRepo(
   owner: string,

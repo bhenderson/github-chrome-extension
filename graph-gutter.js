@@ -13,10 +13,12 @@ function computeGutterWidth() {
 
 /**
  * @param {GraphMeta} meta
+ * @param {{ connectAbove?: boolean; connectBelow?: boolean }} [connections]
  * @returns {HTMLElement}
  */
-function buildGraphGutterElement(meta) {
-  const { depth, stackPosition, stackTotal, color } = meta;
+function buildGraphGutterElement(meta, connections = {}) {
+  const { depth, stackTotal, color } = meta;
+  const { connectAbove = false, connectBelow = false } = connections;
 
   const gutter = document.createElement('div');
   gutter.className = 'gce-graph-gutter';
@@ -25,7 +27,7 @@ function buildGraphGutterElement(meta) {
   if (stackTotal > 1) {
     const upper = document.createElement('div');
     upper.className = 'gce-graph-segment';
-    if (stackPosition > 1) {
+    if (connectAbove) {
       const line = document.createElement('div');
       line.className = 'gce-graph-line';
       upper.append(line);
@@ -41,7 +43,7 @@ function buildGraphGutterElement(meta) {
   if (stackTotal > 1) {
     const lower = document.createElement('div');
     lower.className = 'gce-graph-segment';
-    if (stackPosition < stackTotal) {
+    if (connectBelow) {
       const line = document.createElement('div');
       line.className = 'gce-graph-line';
       lower.append(line);
