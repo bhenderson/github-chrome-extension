@@ -29,6 +29,9 @@ const REVIEW_UI_ATTR = 'data-gce-review';
 /** Marks extension-injected Jira badges for cleanup before re-render. */
 const JIRA_UI_ATTR = 'data-gce-jira';
 
+/** Stable class for DevTools queries, e.g. `document.querySelectorAll('.gce-jira-badge')`. */
+const JIRA_BADGE_CLASS = 'gce-jira-badge';
+
 /** Marks extension-injected dependency graph gutter on a row. */
 const GRAPH_ATTR = 'data-gce-graph';
 
@@ -720,6 +723,61 @@ function extractJiraKey(branchName, patternStr) {
 }
 
 /**
+ * @typedef {Object} JiraIssueBadgeData
+ * @property {string} issueUrl
+ * @property {string} statusName
+ * @property {string} statusCategoryKey
+ */
+
+/**
+ * @param {string} jiraKey
+ * @param {JiraIssueBadgeData} issueData
+ * @returns {HTMLAnchorElement}
+ */
+function buildJiraBadgeElement(jiraKey, issueData) {
+  const link = document.createElement('a');
+  link.href = issueData.issueUrl;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.setAttribute(JIRA_UI_ATTR, '1');
+  // Class (not just data-gce-jira) so badges are easy to find in the page inspector.
+  link.classList.add(JIRA_BADGE_CLASS);
+  Object.assign(link.style, {
+    display: 'inline-flex',
+    alignItems: 'center',
+    marginLeft: '8px',
+    marginRight: '6px',
+    verticalAlign: 'middle',
+    borderRadius: '3px',
+    overflow: 'hidden',
+    fontSize: '11px',
+    fontFamily: 'Verdana,Geneva,DejaVu Sans,sans-serif',
+    fontWeight: 'normal',
+    lineHeight: '1',
+    textDecoration: 'none',
+  });
+
+  const keySpan = document.createElement('span');
+  keySpan.textContent = jiraKey;
+  Object.assign(keySpan.style, {
+    padding: '3px 6px',
+    backgroundColor: '#555',
+    color: '#fff',
+  });
+
+  const statusSpan = document.createElement('span');
+  statusSpan.textContent = issueData.statusName;
+  Object.assign(statusSpan.style, {
+    padding: '3px 6px',
+    backgroundColor: jiraStatusColor(issueData.statusCategoryKey),
+    color: '#fff',
+  });
+
+  link.append(keySpan, statusSpan);
+  return link;
+}
+
+/**
  * Fetches Jira statuses and renders status badges on PR rows.
  * @param {import('./types/github-extension-global').ExtensionSettings} settings
  * @param {Array<{ number: number; headRefName: string }>} pullRequests
@@ -783,45 +841,7 @@ async function renderJiraStatusBadges(settings, pullRequests) {
     const container = getJiraBadgeContainer(el);
     if (!container) continue;
 
-    const badgeStyle = {
-      display: 'inline-flex',
-      alignItems: 'center',
-      marginLeft: '8px',
-      marginRight: '6px',
-      verticalAlign: 'middle',
-      borderRadius: '3px',
-      overflow: 'hidden',
-      fontSize: '11px',
-      fontFamily: 'Verdana,Geneva,DejaVu Sans,sans-serif',
-      fontWeight: 'normal',
-      lineHeight: '1',
-      textDecoration: 'none',
-    };
-
-    const link = document.createElement('a');
-    link.href = issueData.issueUrl;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.setAttribute(JIRA_UI_ATTR, '1');
-    Object.assign(link.style, badgeStyle);
-
-    const keySpan = document.createElement('span');
-    keySpan.textContent = jiraKey;
-    Object.assign(keySpan.style, {
-      padding: '3px 6px',
-      backgroundColor: '#555',
-      color: '#fff',
-    });
-
-    const statusSpan = document.createElement('span');
-    statusSpan.textContent = issueData.statusName;
-    Object.assign(statusSpan.style, {
-      padding: '3px 6px',
-      backgroundColor: jiraStatusColor(issueData.statusCategoryKey),
-      color: '#fff',
-    });
-
-    link.append(keySpan, statusSpan);
+    const link = buildJiraBadgeElement(jiraKey, issueData);
 
     if (layout === 'listview') {
       const sep = document.createElement('span');
