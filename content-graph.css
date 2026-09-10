@@ -1,22 +1,61 @@
-/* Reserve left margin on the list; gutter imgs sit inside this padding. */
+/* Reserve left margin on the list for chain-row gutters. */
 ul.gce-dep-list,
 .js-navigation-container.gce-dep-list {
-  position: relative !important;
   padding-left: var(--gce-list-gutter, 0) !important;
 }
 
-.gce-dep-list > .gce-graph-gutter {
+/*
+ * Pull chain rows into the list padding, then pad content back so text aligns
+ * with non-chain rows. Gutter stays at left:0 inside the row (ListView's
+ * overflow:hidden container clips anything positioned outside the li).
+ */
+.gce-dep-chain {
+  position: relative !important;
+  margin-left: calc(-1 * var(--gce-list-gutter, 0px)) !important;
+  padding-left: var(--gce-list-gutter, 0px) !important;
+}
+
+.gce-dep-chain > .gce-graph-gutter {
   position: absolute;
   left: 0;
-  display: block;
-  object-fit: fill;
+  top: 0;
+  bottom: 0;
+  width: var(--gce-list-gutter, var(--gce-gutter-width, 18px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   pointer-events: auto;
   cursor: default;
   z-index: 1;
 }
 
+.gce-graph-segment {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.gce-graph-line {
+  width: 2px;
+  height: 100%;
+  background-color: var(--gce-graph-color);
+}
+
+.gce-graph-depth {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  font-family: system-ui, sans-serif;
+  color: var(--gce-graph-color);
+}
+
 @media (prefers-color-scheme: dark) {
-  .gce-dep-list > .gce-graph-gutter {
+  .gce-dep-chain > .gce-graph-gutter {
     opacity: 0.92;
   }
 }

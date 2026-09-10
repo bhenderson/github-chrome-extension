@@ -7,7 +7,7 @@
 /// <reference path="./tree.js" />
 /// <reference path="./github-prs.js" />
 /// <reference path="./pulls-list-dom.js" />
-/// <reference path="./graph-svg.js" />
+/// <reference path="./graph-gutter.js" />
 
 const _ext = /** @type {import('./types/github-extension-global').GithubExtensionGlobal | undefined} */ (
   /** @type {any} */ (globalThis).__githubExtension
@@ -286,6 +286,9 @@ function clearGraphFromRow(el) {
   el.classList.remove('gce-dep-chain');
   el.removeAttribute(GRAPH_ATTR);
   el.removeAttribute('data-gce-layout');
+  for (const gutter of el.querySelectorAll(`.${GRAPH_GUTTER_CLASS}`)) {
+    gutter.remove();
+  }
 }
 
 /**
@@ -317,6 +320,7 @@ function clearGraphFromRows(prElements, container) {
 function clearGraphListGutter(container) {
   container.classList.remove(DEP_LIST_CLASS);
   container.style.removeProperty('--gce-list-gutter');
+  container.style.removeProperty('--gce-gutter-width');
 }
 
 /**
@@ -328,6 +332,7 @@ function applyGraphListGutter(container, layout, gutterWidthPx) {
   const gap = layout === 'listview' ? 6 : 4;
   container.classList.add(DEP_LIST_CLASS);
   container.style.setProperty('--gce-list-gutter', `${gutterWidthPx + gap}px`);
+  container.style.setProperty('--gce-gutter-width', `${gutterWidthPx}px`);
 }
 
 /**
@@ -340,34 +345,6 @@ function applyGraphListGutter(container, layout, gutterWidthPx) {
  */
 
 /**
- * Gutter is a child of the list container at left:0 (inside ul padding), not inside the row,
- * so ancestor overflow on ListView rows does not clip it.
- * @param {HTMLElement} container
- * @param {HTMLElement} row
- * @param {GraphMeta} graphMeta
- * @param {'legacy' | 'listview'} layout
- * @param {number} gutterWidthPx
- */
-function applyGraphToRow(container, row, graphMeta, layout, gutterWidthPx) {
-  const label = buildGraphHoverLabel(graphMeta);
-  const gutter = document.createElement('img');
-  gutter.className = GRAPH_GUTTER_CLASS;
-  gutter.setAttribute(GRAPH_ATTR, '1');
-  gutter.setAttribute('aria-label', label);
-  gutter.title = label;
-  gutter.alt = '';
-  gutter.src = buildRowGraphSvg(graphMeta, gutterWidthPx);
-  gutter.style.width = `${gutterWidthPx}px`;
-  gutter.style.top = `${row.offsetTop}px`;
-  gutter.style.height = `${row.offsetHeight}px`;
-  container.append(gutter);
-
-  row.setAttribute(GRAPH_ATTR, '1');
-  row.classList.add('gce-dep-chain');
-  row.setAttribute('data-gce-layout', layout);
-}
-
-/**
  * @param {PendingGraphState} state
  */
 function applyGraphsToList(state) {
@@ -376,11 +353,25 @@ function applyGraphsToList(state) {
   if (!gutterWidthPx || graphMetaByPr.size === 0) return;
 
   applyGraphListGutter(container, layout, gutterWidthPx);
+
+  /** @type {Array<{ row: HTMLElement; graphMeta: GraphMeta; label: string }>} */
+  const pending = [];
   for (const [prNumber, graphMeta] of graphMetaByPr) {
     const row = elementByPRNumber[prNumber];
-    if (row) {
-      applyGraphToRow(container, row, graphMeta, layout, gutterWidthPx);
+    if (row && !row.hidden) {
+      row.setAttribute(GRAPH_ATTR, '1');
+      row.classList.add('gce-dep-chain');
+      row.setAttribute('data-gce-layout', layout);
+      pending.push({ row, graphMeta, label: buildGraphHoverLabel(graphMeta) });
     }
+  }
+
+  for (const { row, graphMeta, label } of pending) {
+    const gutter = buildGraphGutterElement(graphMeta);
+    gutter.setAttribute(GRAPH_ATTR, '1');
+    gutter.setAttribute('aria-label', label);
+    gutter.title = label;
+    row.prepend(gutter);
   }
 }
 
